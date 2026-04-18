@@ -5,7 +5,7 @@ Voice-Driven workout assistant for iPhone
 https://mstrick96.github.io/ironvoice/IronVoice.html
 
 ## Documents
-- **Specification:** `IronVoice_Spec_v2_0_Released.docx`
+- **Specification:** `IronVoice_Spec_v2_0_1_Released.docx`
 - **Build log:** `build_log.md`
 - **GitHub setup guide:** `github_setup.md`
 ## Status
