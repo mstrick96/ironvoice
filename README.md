@@ -1,2 +1,3 @@
 # ironvoice
-Voice-Drivenworkoutassistant for iPhone
+Voice-Driven workout assistant for iPhone
+
