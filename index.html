@@ -318,6 +318,104 @@ body {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   STEP 1 DEBUG PANEL (will be removed in Step 2)
+   ══════════════════════════════════════════════════════════════ */
+.debug-panel {
+  margin-top: 40px;
+  width: 100%;
+  max-width: 340px;
+  background: var(--surface-1);
+  border: 1px dashed var(--text-3);
+  border-radius: 12px;
+  padding: 16px;
+}
+.debug-panel-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--warn);
+  text-align: center;
+  margin-bottom: 6px;
+}
+.debug-panel-hint {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+.debug-panel-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.debug-panel-buttons button {
+  width: 100%;
+  padding: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.debug-panel-buttons button:active {
+  background: var(--surface-3);
+}
+.debug-panel-buttons button.debug-wipe {
+  border-color: var(--err);
+  color: var(--err);
+}
+.debug-panel-buttons button.debug-wipe:active {
+  background: rgba(255, 82, 82, 0.15);
+}
+.debug-panel-status {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--ok);
+  min-height: 14px;
+  font-style: italic;
+}
+.diaglog-entry {
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: var(--surface-1);
+  border-left: 2px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  word-break: break-word;
+}
+.diaglog-entry.cat-state { border-left-color: var(--ok); }
+.diaglog-entry.cat-storage { border-left-color: var(--warn); }
+.diaglog-entry.cat-lifecycle { border-left-color: var(--accent); }
+.diaglog-entry.cat-init { border-left-color: var(--text-3); }
+.diaglog-entry.cat-ui { border-left-color: var(--text-3); }
+.diaglog-entry.cat-debug { border-left-color: var(--err); }
+.diaglog-time {
+  color: var(--text-3);
+  margin-right: 6px;
+  font-size: 10px;
+}
+.diaglog-cat {
+  color: var(--text-2);
+  font-weight: 700;
+  margin-right: 6px;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+.diaglog-msg {
+  color: var(--text);
+}
+.diaglog-extra {
+  color: var(--text-3);
+  font-size: 10px;
+  margin-top: 2px;
+  white-space: pre-wrap;
+}
+
+/* ══════════════════════════════════════════════════════════════
    STATE STATUS (Step 1 placeholder — shows current machine state)
    ══════════════════════════════════════════════════════════════ */
 .state-badge {
@@ -354,12 +452,40 @@ body {
   <div class="hint">
     <strong>Step 1 Skeleton.</strong><br><br>
     Storage architecture and state machine only.<br>
-    No voice, no workout UI yet.<br><br>
-    Use the Storage screen to inspect state.<br>
-    Use the debug console for test scenarios.
+    No voice, no workout UI yet.
   </div>
   <button class="btn-primary" onclick="IV.debugStartSession()">SIMULATE START</button>
   <button class="btn-sec" onclick="IV.showScreen('storage')">Storage Inspector</button>
+
+  <!-- ─── Step 1 debug panel — will be removed in Step 2 ─── -->
+  <div class="debug-panel">
+    <div class="debug-panel-title">STEP 1 DEBUG TOOLS</div>
+    <div class="debug-panel-hint">For target-device testing. These buttons will be removed in Step 2.</div>
+    <div class="debug-panel-buttons">
+      <button onclick="IV.debugMakeSessionStale(7)">Make Session Stale (7h)</button>
+      <button onclick="IV.debugCorruptKey('plan')">Corrupt Plan</button>
+      <button onclick="IV.debugCorruptKey('history')">Corrupt History</button>
+      <button onclick="IV.debugCorruptKey('settings')">Corrupt Settings</button>
+      <button onclick="IV.showScreen('diaglog')">View Diagnostic Log</button>
+      <button onclick="location.reload()">Reload App</button>
+      <button class="debug-wipe" onclick="IV.debugWipeAll()">Wipe All IV Data</button>
+    </div>
+    <div class="debug-panel-status" id="debug-status"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SCREEN: Diagnostic Log (Step 1 only)
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-diaglog">
+  <div class="inspector-title">DIAGNOSTIC LOG</div>
+  <div style="font-size: 12px; color: var(--text-3); margin-bottom: 14px; text-align: center;">
+    Most recent at top. State transitions, storage events, lifecycle changes.
+  </div>
+  <div id="diaglog-entries" style="font-family: 'SF Mono', Menlo, monospace; font-size: 11px; line-height: 1.5;"></div>
+  <div class="inspector-back">
+    <button class="btn-sec" onclick="IV.showScreen('welcome')">Back to Welcome</button>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -860,7 +986,7 @@ const State = (() => {
 // Step 1 scope: just enough UI to confirm architecture works.
 // Step 2 will replace placeholder screens with real workout UI.
 const UI = (() => {
-  const SCREENS = ['welcome', 'storage', 'pwa', 'https'];
+  const SCREENS = ['welcome', 'storage', 'pwa', 'https', 'diaglog'];
   let activeScreen = null;
 
   function showScreen(name) {
@@ -875,6 +1001,34 @@ const UI = (() => {
     activeScreen = name;
     Diag.add('ui', `Screen → ${name}`);
     if (name === 'storage') Inspector.refresh();
+    if (name === 'diaglog') renderDiaglog();
+  }
+
+  function renderDiaglog() {
+    const entries = Diag.all().slice().reverse(); // newest first
+    const container = document.getElementById('diaglog-entries');
+    if (!container) return;
+    if (entries.length === 0) {
+      container.innerHTML = '<div style="text-align:center;color:var(--text-3);padding:20px;">No entries</div>';
+      return;
+    }
+    const html = entries.map(e => {
+      const time = new Date(e.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const cat = (e.cat || 'misc').toLowerCase();
+      const msg = String(e.msg || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      let extra = '';
+      if (e.extra !== undefined) {
+        const ex = typeof e.extra === 'object' ? JSON.stringify(e.extra) : String(e.extra);
+        extra = `<div class="diaglog-extra">${ex.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`;
+      }
+      return `<div class="diaglog-entry cat-${cat}">
+        <span class="diaglog-time">${time}</span>
+        <span class="diaglog-cat">${cat}</span>
+        <span class="diaglog-msg">${msg}</span>
+        ${extra}
+      </div>`;
+    }).join('');
+    container.innerHTML = html;
   }
 
   function reflectState(stateName) {
@@ -1196,7 +1350,24 @@ const Preflight = (() => {
 // DEBUG NAMESPACE — exposed as window.__iv and IV for testing
 // ═══════════════════════════════════════════════════════════════
 // Accessible from the browser dev console. Used by the test scenarios
-// documented in the build log.
+// documented in the build log. Also wired to on-screen buttons in the
+// Step 1 debug panel for target-device testing.
+
+// Show a brief status message in the debug panel on the welcome screen.
+// Color-coded: 'ok' (green, default), 'err' (red), 'warn' (yellow).
+function debugStatus(msg, type) {
+  const el = document.getElementById('debug-status');
+  if (!el) return;
+  el.textContent = msg || '';
+  const colorMap = { ok: 'var(--ok)', err: 'var(--err)', warn: 'var(--warn)' };
+  el.style.color = colorMap[type] || colorMap.ok;
+  // Clear after 4 seconds unless replaced
+  if (debugStatus._timer) clearTimeout(debugStatus._timer);
+  debugStatus._timer = setTimeout(() => {
+    if (el.textContent === msg) el.textContent = '';
+  }, 4000);
+}
+
 const IV = {
   // Public UI entry points (called from HTML)
   showScreen: UI.showScreen,
@@ -1208,6 +1379,10 @@ const IV = {
   },
 
   // ─── Debug helpers for Step 1 testing ───
+  // Because iOS Safari doesn't expose a JavaScript console on the phone,
+  // these helpers write user-visible status messages to the debug panel
+  // and, where appropriate, auto-reload the page so the user doesn't have
+  // to remember to do it.
 
   // Create a fake live session to exercise the storage layer
   debugStartSession() {
@@ -1231,33 +1406,42 @@ const IV = {
       null
     );
     Diag.add('debug', 'Simulated session start');
+    debugStatus('Session started. Check Storage screen.');
   },
 
-  // Force current session to appear stale (test close-tab rule)
+  // Force current session to appear stale (test close-tab rule).
+  // Automatically reloads so the user sees the auto-finalize behavior.
   debugMakeSessionStale(hoursAgo) {
     hoursAgo = hoursAgo || 7;
     const session = Storage.loadKey('session');
     if (!session) {
-      console.warn('[IV] No session to make stale. Call IV.debugStartSession() first.');
+      debugStatus('No session to make stale. Tap SIMULATE START first.', 'err');
       return;
     }
     session.lastActivityTimestamp = Date.now() - (hoursAgo * 60 * 60 * 1000);
     Storage.saveKey('session', session);
-    console.log(`[IV] Session timestamped ${hoursAgo}h ago. Reload to trigger auto-finalize.`);
+    Diag.add('debug', `Session timestamped ${hoursAgo}h ago; reloading`);
+    debugStatus(`Session set to ${hoursAgo}h ago. Reloading in 2s…`);
+    setTimeout(() => location.reload(), 2000);
   },
 
-  // Corrupt a storage key to test recovery
+  // Corrupt a storage key to test recovery.
+  // Automatically reloads so the user sees the recovery banner.
   debugCorruptKey(keyName) {
     if (!STORAGE_KEYS[keyName]) {
-      console.warn(`[IV] Unknown key: ${keyName}. Try: plan, session, history, settings`);
+      debugStatus(`Unknown key: ${keyName}`, 'err');
       return;
     }
     localStorage.setItem(STORAGE_KEYS[keyName], '{not valid json');
-    console.log(`[IV] ${keyName} corrupted. Reload to trigger recovery.`);
+    Diag.add('debug', `${keyName} corrupted; reloading`);
+    debugStatus(`${keyName} corrupted. Reloading in 2s…`);
+    setTimeout(() => location.reload(), 2000);
   },
 
-  // Wipe all Iron Voice data (for clean-slate testing)
+  // Wipe all Iron Voice data (for clean-slate testing).
+  // Auto-reloads to complete the reset.
   debugWipeAll() {
+    // Use native confirm; works on iOS
     const confirmed = confirm('Wipe ALL Iron Voice data? (for testing only)');
     if (!confirmed) return;
     for (const key of Object.values(STORAGE_KEYS)) {
@@ -1270,7 +1454,9 @@ const IV = {
       if (k && k.startsWith('iv.corrupt.v2.')) toRemove.push(k);
     }
     toRemove.forEach(k => localStorage.removeItem(k));
-    console.log('[IV] All data wiped. Reload for fresh start.');
+    Diag.add('debug', 'All data wiped by user');
+    debugStatus('All data wiped. Reloading in 2s…');
+    setTimeout(() => location.reload(), 2000);
   },
 
   // Read-only access to diagnostics
