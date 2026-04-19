@@ -241,6 +241,14 @@ body {
   cursor: pointer;
 }
 .inspector-actions button:active { background: var(--surface-3); }
+.inspector-actions button.btn-danger {
+  background: transparent;
+  border-color: var(--err);
+  color: var(--err);
+}
+.inspector-actions button.btn-danger:active {
+  background: rgba(255, 82, 82, 0.15);
+}
 
 .inspector-back {
   margin-top: 20px;
