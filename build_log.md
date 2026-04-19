@@ -30,8 +30,8 @@ Each step produces a testable artifact. Do not proceed to the next step until th
 
 | Step | Name | Status |
 |------|------|--------|
-| 1 | Skeleton + storage architecture | 🟢 Complete (code produced, awaiting user test) |
-| 2 | State machine + UI shell | ⚪ Not started |
+| 1 | Skeleton + storage architecture | 🟢 Complete |
+| 2 | State machine + UI shell | 🟡 Ready to start |
 | 3 | Voice loop (Layer 1 wake word + basic commands) | ⚪ Not started |
 | 4 | Full command grammar (Layer 2) | ⚪ Not started |
 | 5 | Layer 3 intent matching | ⚪ Not started |
@@ -218,6 +218,21 @@ Update this build log with completion date, any decisions made during implementa
 ## Decision log (chronological)
 
 This section tracks decisions made during implementation, most recent first.
+
+### 2026-04-19 — Step 1 complete
+
+All 8 tests on target device (iPhone, Safari) passed after one small cosmetic fix:
+
+**Bug found and fixed during testing:** Clear History button in Storage Inspector wasn't rendering with the expected red outline. Root cause was CSS specificity: `.inspector-actions button` selector was overriding the `.btn-danger` variant because it had higher specificity. Fixed by adding a more specific rule `.inspector-actions button.btn-danger` that restores the red outline/text styling. Confirms the visual hierarchy I intended: destructive actions look different from routine actions.
+
+**Also added during Step 1 revision:**
+- On-device debug panel with seven buttons, replacing the console-command approach that only worked on desktop browsers. Each debug action gives visible status feedback. Actions requiring a reload auto-reload after 2 seconds.
+- Diagnostic log viewer screen — displays the last 100 internal events on the phone, color-coded by category (state, storage, lifecycle, etc.). This replaces what `console.log` was useful for on a desktop.
+- Decision: the debug panel and diaglog screen will be removed in Step 2 when real workout UI takes over. No `?debug=1` URL parameter needed — Step 1 scaffolding is transitional.
+
+**Lessons for future steps:**
+- Console-based testing instructions assume desktop browsers and don't work for target-device (iPhone) testing. For any build step that needs interactive testing, build the test controls into the app itself. Do this *during* code generation, not as an afterthought.
+- CSS specificity matters when adding variant classes inside specific contexts. When I write `.btn-danger` and also write `.some-context button { ... }`, the context selector wins unless I anticipate it. Rule of thumb for this project: any time I write a variant class (`.btn-danger`, `.btn-primary`, etc.), I should verify it still wins when applied inside `.inspector-actions`, `.debug-panel-buttons`, or other scoped containers.
 
 ### 2026-04-18 — Step 1 code produced
 
