@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-title" content="Iron Voice">
+<title>Iron Voice</title>
+<style>
+/* ══════════════════════════════════════════════════════════════
+   BASE STYLES
+   ══════════════════════════════════════════════════════════════ */
+:root {
+  --bg: #0a0a0b;
+  --surface-1: #161618;
+  --surface-2: #222226;
+  --surface-3: #2e2e33;
+  --accent: #e05500;
+  --accent-dim: rgba(224, 85, 0, 0.15);
+  --accent-glow: rgba(224, 85, 0, 0.30);
+  --text: #ffffff;
+  --text-2: rgba(255, 255, 255, 0.65);
+  --text-3: rgba(255, 255, 255, 0.30);
+  --ok: #00e676;
+  --warn: #ffd54f;
+  --err: #ff5252;
+  --border: rgba(255, 255, 255, 0.07);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  max-width: 430px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   OVERLAY / SCREEN STYLES
+   ══════════════════════════════════════════════════════════════ */
+.screen {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  z-index: 10;
+  display: none;
+  flex-direction: column;
+  padding: 40px 28px;
+  padding-top: max(40px, env(safe-area-inset-top));
+  padding-bottom: max(40px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+.screen.active { display: flex; }
+
+.screen-center {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.logo {
+  font-size: 64px;
+  font-weight: 900;
+  letter-spacing: 6px;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.logo-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.version-tag {
+  font-size: 11px;
+  color: var(--text-3);
+  letter-spacing: 2px;
+  margin-bottom: 28px;
+}
+
+.hint {
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.75;
+  margin-bottom: 32px;
+  max-width: 320px;
+}
+.hint strong { color: var(--accent); }
+
+.btn-primary {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  padding: 16px 48px;
+  border-radius: 50px;
+  cursor: pointer;
+  box-shadow: 0 4px 32px var(--accent-glow);
+  -webkit-appearance: none;
+  margin-bottom: 14px;
+}
+.btn-primary:active { opacity: 0.85; }
+
+.btn-sec {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 12px 32px;
+  border-radius: 50px;
+  cursor: pointer;
+  margin: 6px 4px;
+}
+.btn-sec:active { background: var(--surface-3); }
+
+.btn-danger {
+  background: transparent;
+  border: 1px solid var(--err);
+  color: var(--err);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn-danger:active { background: rgba(255, 82, 82, 0.15); }
+
+/* ══════════════════════════════════════════════════════════════
+   BANNER STYLES
+   ══════════════════════════════════════════════════════════════ */
+.banner {
+  padding: 10px 16px;
+  padding-top: max(10px, env(safe-area-inset-top));
+  font-size: 13px;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-shrink: 0;
+  z-index: 20;
+  position: relative;
+}
+.banner.info {
+  background: rgba(224, 85, 0, 0.10);
+  border-bottom: 1px solid rgba(224, 85, 0, 0.20);
+  color: var(--text-2);
+}
+.banner.warn {
+  background: rgba(255, 213, 79, 0.10);
+  border-bottom: 1px solid rgba(255, 213, 79, 0.25);
+  color: var(--warn);
+}
+.banner.err {
+  background: rgba(255, 82, 82, 0.10);
+  border-bottom: 1px solid rgba(255, 82, 82, 0.25);
+  color: var(--err);
+}
+.banner button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   STORAGE INSPECTOR
+   ══════════════════════════════════════════════════════════════ */
+.inspector-title {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--accent);
+  letter-spacing: 3px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+.inspector-section {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.inspector-section h3 {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.inspector-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.inspector-row:last-child { border-bottom: none; }
+.inspector-row-label { color: var(--text-2); }
+.inspector-row-value { color: var(--text); font-weight: 600; }
+
+.inspector-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+.inspector-actions button {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.inspector-actions button:active { background: var(--surface-3); }
+
+.inspector-back {
+  margin-top: 20px;
+  text-align: center;
+}
+
+/* Confirmation dialog for clear */
+.confirm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 20px;
+}
+.confirm-overlay.active { display: flex; }
+.confirm-box {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 360px;
+  width: 100%;
+}
+.confirm-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--err);
+  margin-bottom: 10px;
+}
+.confirm-text {
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+.confirm-input {
+  width: 100%;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 16px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  outline: none;
+  margin-bottom: 16px;
+  -webkit-appearance: none;
+}
+.confirm-input:focus { border-color: var(--err); }
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+}
+.confirm-actions button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+}
+.confirm-cancel {
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.confirm-ok {
+  background: var(--err);
+  color: white;
+}
+.confirm-ok:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   STATE STATUS (Step 1 placeholder — shows current machine state)
+   ══════════════════════════════════════════════════════════════ */
+.state-badge {
+  position: fixed;
+  bottom: 8px;
+  right: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: 10px;
+  letter-spacing: 2px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  z-index: 100;
+  font-family: 'SF Mono', Menlo, monospace;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     BANNER AREA (dynamically populated; stays above screens)
+     ═══════════════════════════════════════════════════════════════ -->
+<div id="banner-area"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SCREEN: Welcome (default landing)
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="screen screen-center" id="screen-welcome">
+  <div class="logo">IRON<br>VOICE</div>
+  <div class="logo-sub">Workout Assistant</div>
+  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 1</div>
+  <div class="hint">
+    <strong>Step 1 Skeleton.</strong><br><br>
+    Storage architecture and state machine only.<br>
+    No voice, no workout UI yet.<br><br>
+    Use the Storage screen to inspect state.<br>
+    Use the debug console for test scenarios.
+  </div>
+  <button class="btn-primary" onclick="IV.debugStartSession()">SIMULATE START</button>
+  <button class="btn-sec" onclick="IV.showScreen('storage')">Storage Inspector</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SCREEN: Storage Inspector
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-storage">
+  <div class="inspector-title">STORAGE</div>
+
+  <div class="inspector-section">
+    <h3>Overview</h3>
+    <div class="inspector-row">
+      <span class="inspector-row-label">Total size</span>
+      <span class="inspector-row-value" id="insp-size">—</span>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-row-label">Schema version</span>
+      <span class="inspector-row-value" id="insp-schema">—</span>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-row-label">Current state</span>
+      <span class="inspector-row-value" id="insp-state">—</span>
+    </div>
+  </div>
+
+  <div class="inspector-section">
+    <h3>Session</h3>
+    <div class="inspector-row">
+      <span class="inspector-row-label">Live session</span>
+      <span class="inspector-row-value" id="insp-session">—</span>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-row-label">Last activity</span>
+      <span class="inspector-row-value" id="insp-lastact">—</span>
+    </div>
+  </div>
+
+  <div class="inspector-section">
+    <h3>History</h3>
+    <div class="inspector-row">
+      <span class="inspector-row-label">Completed sessions</span>
+      <span class="inspector-row-value" id="insp-histcount">—</span>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-row-label">Oldest</span>
+      <span class="inspector-row-value" id="insp-oldest">—</span>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-row-label">Most recent</span>
+      <span class="inspector-row-value" id="insp-newest">—</span>
+    </div>
+  </div>
+
+  <div class="inspector-section">
+    <h3>Backup</h3>
+    <div class="inspector-row">
+      <span class="inspector-row-label">Last export</span>
+      <span class="inspector-row-value" id="insp-lastexport">—</span>
+    </div>
+    <div class="inspector-row">
+      <span class="inspector-row-label">Last confirmed backup</span>
+      <span class="inspector-row-value" id="insp-lastbackup">—</span>
+    </div>
+  </div>
+
+  <div class="inspector-actions">
+    <button disabled title="Export not implemented in Step 1">Back Up All Now (Step 7)</button>
+    <button disabled title="Export not implemented in Step 1">Export Since Last Backup (Step 7)</button>
+    <button onclick="IV.inspector.showRawJson()">View Raw JSON</button>
+    <button class="btn-danger" onclick="IV.inspector.requestClearHistory()">Clear History</button>
+  </div>
+
+  <div class="inspector-back">
+    <button class="btn-sec" onclick="IV.showScreen('welcome')">Back to Welcome</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SCREEN: PWA Block
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="screen screen-center" id="screen-pwa">
+  <div class="logo" style="font-size: 48px;">BLOCKED</div>
+  <div class="hint" style="margin-top: 30px;">
+    Iron Voice cannot run when launched from the Home Screen as a standalone app.<br><br>
+    iOS disables the voice recognition engine in that mode.<br><br>
+    Please open this URL in <strong>Safari</strong> or <strong>Edge</strong> as a regular browser tab.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SCREEN: HTTPS Error
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="screen screen-center" id="screen-https">
+  <div class="logo" style="font-size: 48px; color: var(--err);">HTTPS<br>REQUIRED</div>
+  <div class="hint" style="margin-top: 30px;">
+    Iron Voice requires a secure connection (HTTPS) to use voice recognition.<br><br>
+    This page was loaded without HTTPS. Please open the app from its GitHub Pages URL:<br><br>
+    <strong>https://mstrick96.github.io/ironvoice/</strong>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CONFIRM DIALOG (for Clear History)
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="confirm-overlay" id="confirm-clear">
+  <div class="confirm-box">
+    <div class="confirm-title">Clear all workout history?</div>
+    <div class="confirm-text">
+      This will permanently delete all completed session records. The current plan and settings will be kept. This cannot be undone.<br><br>
+      Type <strong>ERASE</strong> to confirm:
+    </div>
+    <input type="text" class="confirm-input" id="confirm-input" autocomplete="off" autocapitalize="characters">
+    <div class="confirm-actions">
+      <button class="confirm-cancel" onclick="IV.inspector.cancelClear()">Cancel</button>
+      <button class="confirm-ok" id="confirm-ok-btn" disabled onclick="IV.inspector.doClear()">Clear History</button>
+    </div>
+  </div>
+</div>
+
+<!-- Debug state badge (shows current machine state — persists across screens) -->
+<div class="state-badge" id="state-badge">—</div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════
+// CONFIGURATION (user-editable constants)
+// ═══════════════════════════════════════════════════════════════
+const CONFIG = {
+  // Wake word (future use, Step 3+). Single word recommended per spec.
+  WAKE_WORD: 'iron',
+  WAKE_WORD_FALLBACK: 'iron up',
+
+  // Default rest duration (seconds), future use
+  DEFAULT_REST_SECONDS: 90,
+
+  // Close-tab heartbeat threshold (hours). Sessions older than this
+  // on load are auto-finalized to history per spec Section 6.4.1.
+  STALE_SESSION_HOURS: 6,
+
+  // Diagnostics ring buffer size
+  DIAG_BUFFER_SIZE: 100,
+
+  // Default workout plan — used on first launch only
+  DEFAULT_PLAN: [
+    { id: 'bike',  type: 'timed',    name: 'Recumbent Bike', level: 1,   duration: 10, note: 'Easy warm-up pace. Loosen hips and legs.' },
+    { id: 'e01',   type: 'strength', name: 'Chest Press',    weight: 40,  reps: 20, sets: 1, rest: 90, note: 'Full range of motion. Controlled push and slow return. Do not lock elbows.' },
+    { id: 'e02',   type: 'strength', name: 'Leg Press',      weight: 145, reps: 20, sets: 1, rest: 90, note: 'Feet shoulder-width. Push through heels. Stop short of locking knees.' },
+    { id: 'e03',   type: 'strength', name: 'Lat Pulldown',   weight: 70,  reps: 20, sets: 1, rest: 90, note: 'Pull to upper chest. Squeeze shoulder blades. Slow return.' },
+    { id: 'e04',   type: 'strength', name: 'Shoulder Press', weight: 40,  reps: 20, sets: 1, rest: 90, note: 'Press straight up. Do not arch back. Stop short of locking elbows.' },
+    { id: 'e05',   type: 'strength', name: 'Leg Curl',       weight: 60,  reps: 20, sets: 1, rest: 90, note: 'Smooth curl through full range. No jerking. Slow return.' },
+    { id: 'e06',   type: 'strength', name: 'Biceps Curl',    weight: 40,  reps: 20, sets: 1, rest: 90, note: 'Elbows at sides. Full curl up, slow descent. No swinging.' },
+    { id: 'e07',   type: 'strength', name: 'Triceps Press',  weight: 70,  reps: 20, sets: 1, rest: 90, note: 'Elbows tucked. Full extension. Slow return. Wrists neutral.' },
+    { id: 'e08',   type: 'strength', name: 'Leg Extension',  weight: 50,  reps: 20, sets: 1, rest: 90, note: 'Extend fully, do not hyperextend. Slow return. No dropping.' },
+    { id: 'e09',   type: 'strength', name: 'Seated Row',     weight: 70,  reps: 20, sets: 1, rest: 90, note: 'Pull elbows back past sides. Squeeze at end. Slow return.' },
+    { id: 'e10',   type: 'strength', name: 'Abdominal',      weight: 100, reps: 20, sets: 1, rest: 90, note: 'Controlled movement. Exhale on contraction. No momentum.' },
+    { id: 'e11',   type: 'strength', name: 'Hip Adduction',  weight: 40,  reps: 20, sets: 1, rest: 90, note: 'Slow squeeze inward. Brief hold. Controlled return. No bouncing.' },
+    { id: 'e12',   type: 'strength', name: 'Hip Abduction',  weight: 40,  reps: 20, sets: 1, rest: 90, note: 'Slow push outward. Brief hold. Controlled return. No bouncing.' }
+  ]
+};
+
+// ═══════════════════════════════════════════════════════════════
+// CONSTANTS (internal, do not edit)
+// ═══════════════════════════════════════════════════════════════
+const STORAGE_KEYS = {
+  plan:     'iv.plan.v2',
+  session:  'iv.session.v2',
+  history:  'iv.history.v2',
+  settings: 'iv.settings.v2',
+  diag:     'iv.diag.v2'
+};
+
+const SCHEMA_VERSION = 2;
+
+// State machine states — must match spec Section 2.1
+const STATES = Object.freeze({
+  IDLE:        'IDLE',
+  LISTENING:   'LISTENING',
+  PROCESSING:  'PROCESSING',
+  SPEAKING:    'SPEAKING',
+  ERROR:       'ERROR'
+});
+
+// Allowed transitions — enforced by transition() function.
+// REGRESSION HAZARD: changing these without updating the state machine logic
+// in Step 3+ will silently break the voice loop. Keep this table and the
+// transition() body in sync.
+const ALLOWED_TRANSITIONS = Object.freeze({
+  IDLE:       ['LISTENING', 'ERROR'],
+  LISTENING:  ['PROCESSING', 'SPEAKING', 'IDLE', 'ERROR'],
+  PROCESSING: ['SPEAKING', 'LISTENING', 'ERROR'],
+  SPEAKING:   ['LISTENING', 'IDLE'],
+  ERROR:      ['LISTENING', 'IDLE']
+});
+
+// ═══════════════════════════════════════════════════════════════
+// DIAGNOSTICS (ring buffer + optional persistence)
+// ═══════════════════════════════════════════════════════════════
+// All state transitions, storage errors, and lifecycle events go here.
+// Inspectable from dev console as window.__iv.diag.
+const Diag = (() => {
+  let buffer = [];
+
+  function add(category, message, extra) {
+    const entry = {
+      t: new Date().toISOString(),
+      cat: category,
+      msg: message
+    };
+    if (extra !== undefined) entry.extra = extra;
+    buffer.push(entry);
+    if (buffer.length > CONFIG.DIAG_BUFFER_SIZE) {
+      buffer = buffer.slice(-CONFIG.DIAG_BUFFER_SIZE);
+    }
+    // Also mirror to console for easier debugging
+    console.log(`[IV:${category}]`, message, extra !== undefined ? extra : '');
+  }
+
+  function all() { return buffer.slice(); }
+
+  function clear() { buffer = []; }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.diag);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) buffer = parsed.slice(-CONFIG.DIAG_BUFFER_SIZE);
+      }
+    } catch (e) { /* ignore; empty buffer is fine */ }
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.diag, JSON.stringify(buffer));
+    } catch (e) { /* ignore quota errors on diag specifically */ }
+  }
+
+  return { add, all, clear, load, save };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// STORAGE LAYER
+// ═══════════════════════════════════════════════════════════════
+// Each key stores a JSON object with {schemaVersion, ...payload}.
+// Corrupted blobs are stashed to iv.corrupt.v2.<timestamp> before reset.
+// REGRESSION HAZARD: any new storage field must be added to the default
+// factory for its key AND to validateShape(). Missing validation = silent
+// corruption retained.
+const Storage = (() => {
+
+  function defaultPlan() {
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      exercises: JSON.parse(JSON.stringify(CONFIG.DEFAULT_PLAN))
+    };
+  }
+
+  function defaultSession() {
+    return null; // no live session by default
+  }
+
+  function defaultHistory() {
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      sessions: []
+    };
+  }
+
+  function defaultSettings() {
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      defaultRestSeconds: CONFIG.DEFAULT_REST_SECONDS,
+      lastExportDate: null,
+      lastBackupConfirmedDate: null
+    };
+  }
+
+  // Validate shape. Returns true if object is a valid payload for the
+  // given key. Only checks structure, not values.
+  function validateShape(key, obj) {
+    if (obj === null && key === 'session') return true;  // null session is valid
+    if (!obj || typeof obj !== 'object') return false;
+    if (typeof obj.schemaVersion !== 'number') return false;
+
+    switch (key) {
+      case 'plan':
+        return Array.isArray(obj.exercises);
+      case 'session':
+        return typeof obj.id === 'string' &&
+               typeof obj.startTime === 'string' &&
+               typeof obj.currentIndex === 'number' &&
+               typeof obj.lastActivityTimestamp === 'number' &&
+               Array.isArray(obj.logEntries);
+      case 'history':
+        return Array.isArray(obj.sessions);
+      case 'settings':
+        return true; // tolerant — may have any of several fields
+      default:
+        return false;
+    }
+  }
+
+  // Migration ladder. Currently only v2 exists, so this is a no-op
+  // passthrough. Future: migrate(2, 3, obj) would upgrade v2 → v3.
+  // REGRESSION HAZARD: every new SCHEMA_VERSION requires a new case here.
+  function migrate(key, obj) {
+    if (!obj || typeof obj.schemaVersion !== 'number') return obj;
+    while (obj.schemaVersion < SCHEMA_VERSION) {
+      switch (obj.schemaVersion) {
+        // case 1: obj = upgradeV1toV2(key, obj); break;
+        default:
+          Diag.add('storage', `Unknown schema version ${obj.schemaVersion} for ${key} — cannot migrate`);
+          return null;
+      }
+    }
+    return obj;
+  }
+
+  function stashCorrupt(key, rawValue) {
+    const stashKey = `iv.corrupt.v2.${key}.${Date.now()}`;
+    try {
+      localStorage.setItem(stashKey, rawValue);
+      Diag.add('storage', `Corrupted ${key} stashed to ${stashKey}`);
+    } catch (e) {
+      Diag.add('storage', `Failed to stash corrupt ${key} (quota?)`, e.message);
+    }
+  }
+
+  // Load a key. Returns the loaded object on success, or the default
+  // on first load or on corruption. On corruption, raises a banner.
+  function loadKey(keyName) {
+    const storageKey = STORAGE_KEYS[keyName];
+    const raw = localStorage.getItem(storageKey);
+
+    if (raw === null) {
+      // First load — return default and persist
+      const def = factoryDefault(keyName);
+      if (keyName === 'session' && def === null) {
+        // Don't persist "null" for session on first load; let it remain absent
+        Diag.add('storage', `No prior ${keyName} (first load)`);
+      } else {
+        saveKey(keyName, def);
+        Diag.add('storage', `Initialized ${keyName} with defaults`);
+      }
+      return def;
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      Diag.add('storage', `JSON parse failed for ${keyName}`, e.message);
+      stashCorrupt(keyName, raw);
+      UI.raiseCorruptionBanner(keyName);
+      const def = factoryDefault(keyName);
+      saveKey(keyName, def);
+      return def;
+    }
+
+    // For session only: null is valid (means "no active session")
+    if (keyName === 'session' && parsed === null) {
+      return null;
+    }
+
+    // Attempt migration if schema is older
+    if (parsed && typeof parsed.schemaVersion === 'number' && parsed.schemaVersion < SCHEMA_VERSION) {
+      parsed = migrate(keyName, parsed);
+      if (parsed === null) {
+        stashCorrupt(keyName, raw);
+        UI.raiseCorruptionBanner(keyName);
+        const def = factoryDefault(keyName);
+        saveKey(keyName, def);
+        return def;
+      }
+    }
+
+    if (!validateShape(keyName, parsed)) {
+      Diag.add('storage', `Shape validation failed for ${keyName}`, parsed);
+      stashCorrupt(keyName, raw);
+      UI.raiseCorruptionBanner(keyName);
+      const def = factoryDefault(keyName);
+      saveKey(keyName, def);
+      return def;
+    }
+
+    return parsed;
+  }
+
+  function factoryDefault(keyName) {
+    switch (keyName) {
+      case 'plan':     return defaultPlan();
+      case 'session':  return defaultSession();
+      case 'history':  return defaultHistory();
+      case 'settings': return defaultSettings();
+      default: throw new Error(`Unknown key: ${keyName}`);
+    }
+  }
+
+  function saveKey(keyName, value) {
+    const storageKey = STORAGE_KEYS[keyName];
+    try {
+      const serialized = value === null ? 'null' : JSON.stringify(value);
+      localStorage.setItem(storageKey, serialized);
+      return true;
+    } catch (e) {
+      if (e.name === 'QuotaExceededError' || /quota/i.test(e.message)) {
+        Diag.add('storage', `Quota exceeded saving ${keyName}`, e.message);
+        UI.raiseQuotaBanner();
+      } else {
+        Diag.add('storage', `Save failed for ${keyName}`, e.message);
+      }
+      return false;
+    }
+  }
+
+  // Return total bytes used across all IV storage keys.
+  function totalSizeBytes() {
+    let total = 0;
+    for (const key of Object.values(STORAGE_KEYS)) {
+      const v = localStorage.getItem(key);
+      if (v) total += v.length + key.length;
+    }
+    // Also count any corruption stashes
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('iv.corrupt.v2.')) {
+        const v = localStorage.getItem(k);
+        if (v) total += v.length + k.length;
+      }
+    }
+    return total;
+  }
+
+  return {
+    loadKey,
+    saveKey,
+    factoryDefault,
+    totalSizeBytes,
+    defaultPlan,
+    defaultSession,
+    defaultHistory,
+    defaultSettings
+  };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// STATE MACHINE
+// ═══════════════════════════════════════════════════════════════
+// REGRESSION HAZARD: every state change must go through transition().
+// Direct assignment of State.current is forbidden. The enforced
+// transition table is the only mechanism preventing the v1.3.1-class
+// bugs where listening and speaking flags desynchronized.
+const State = (() => {
+  let current = STATES.IDLE;
+  const listeners = [];
+
+  function transition(to, reason) {
+    const from = current;
+    if (from === to) {
+      Diag.add('state', `No-op transition: already ${to}`);
+      return true;
+    }
+    const allowed = ALLOWED_TRANSITIONS[from] || [];
+    if (!allowed.includes(to)) {
+      Diag.add('state', `ILLEGAL transition ${from} → ${to} blocked`, { reason });
+      console.error(`Illegal state transition: ${from} → ${to}`);
+      return false;
+    }
+    current = to;
+    Diag.add('state', `${from} → ${to}`, { reason });
+    UI.reflectState(to);
+    listeners.forEach(fn => {
+      try { fn(to, from, reason); }
+      catch (e) { Diag.add('state', 'Listener threw', e.message); }
+    });
+    return true;
+  }
+
+  function get() { return current; }
+
+  function onChange(fn) { listeners.push(fn); }
+
+  // Force-reset — only used in edge cases like corruption recovery.
+  // Bypasses the allowed-transitions check. Use sparingly.
+  function forceReset(to, reason) {
+    const from = current;
+    current = to;
+    Diag.add('state', `FORCE reset ${from} → ${to}`, { reason });
+    UI.reflectState(to);
+  }
+
+  return { transition, get, onChange, forceReset };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// UI (screens, banners, state badge)
+// ═══════════════════════════════════════════════════════════════
+// Step 1 scope: just enough UI to confirm architecture works.
+// Step 2 will replace placeholder screens with real workout UI.
+const UI = (() => {
+  const SCREENS = ['welcome', 'storage', 'pwa', 'https'];
+  let activeScreen = null;
+
+  function showScreen(name) {
+    if (!SCREENS.includes(name)) {
+      Diag.add('ui', `Unknown screen: ${name}`);
+      return;
+    }
+    SCREENS.forEach(s => {
+      const el = document.getElementById('screen-' + s);
+      if (el) el.classList.toggle('active', s === name);
+    });
+    activeScreen = name;
+    Diag.add('ui', `Screen → ${name}`);
+    if (name === 'storage') Inspector.refresh();
+  }
+
+  function reflectState(stateName) {
+    const badge = document.getElementById('state-badge');
+    if (badge) badge.textContent = stateName;
+  }
+
+  // Banner management — banners stack and each has a unique id so
+  // they can be dismissed individually.
+  function raiseBanner(id, type, message, actionLabel, actionFn) {
+    const area = document.getElementById('banner-area');
+    // Don't duplicate a banner with the same id
+    if (document.getElementById('banner-' + id)) return;
+
+    const banner = document.createElement('div');
+    banner.className = 'banner ' + type;
+    banner.id = 'banner-' + id;
+
+    const text = document.createElement('span');
+    text.textContent = message;
+    banner.appendChild(text);
+
+    if (actionLabel) {
+      const btn = document.createElement('button');
+      btn.textContent = actionLabel;
+      btn.onclick = () => {
+        if (actionFn) actionFn();
+        banner.remove();
+      };
+      banner.appendChild(btn);
+    } else {
+      const dismiss = document.createElement('button');
+      dismiss.textContent = 'Dismiss';
+      dismiss.onclick = () => banner.remove();
+      banner.appendChild(dismiss);
+    }
+
+    area.appendChild(banner);
+  }
+
+  function raiseCorruptionBanner(keyName) {
+    raiseBanner(
+      'corrupt-' + keyName,
+      'warn',
+      `Stored ${keyName} data was corrupted and has been reset to defaults. The old data is preserved in diagnostics.`,
+      'Dismiss',
+      null
+    );
+  }
+
+  function raiseQuotaBanner() {
+    raiseBanner(
+      'quota',
+      'err',
+      'Device storage is full. Export your history and clear old sessions to free space.',
+      'Open Storage',
+      () => showScreen('storage')
+    );
+  }
+
+  function raiseOfflineBanner() {
+    raiseBanner(
+      'offline',
+      'warn',
+      'Offline — voice commands unavailable. Tap controls still work.',
+      null,
+      null
+    );
+  }
+
+  function clearBanner(id) {
+    const el = document.getElementById('banner-' + id);
+    if (el) el.remove();
+  }
+
+  function getActiveScreen() { return activeScreen; }
+
+  return {
+    showScreen,
+    reflectState,
+    raiseBanner,
+    raiseCorruptionBanner,
+    raiseQuotaBanner,
+    raiseOfflineBanner,
+    clearBanner,
+    getActiveScreen
+  };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// STORAGE INSPECTOR
+// ═══════════════════════════════════════════════════════════════
+const Inspector = (() => {
+
+  function formatBytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
+  function formatDate(isoOrTs) {
+    if (!isoOrTs) return 'Never';
+    const d = typeof isoOrTs === 'number' ? new Date(isoOrTs) : new Date(isoOrTs);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleString();
+  }
+
+  function refresh() {
+    const plan     = Storage.loadKey('plan');
+    const session  = Storage.loadKey('session');
+    const history  = Storage.loadKey('history');
+    const settings = Storage.loadKey('settings');
+
+    document.getElementById('insp-size').textContent = formatBytes(Storage.totalSizeBytes());
+    document.getElementById('insp-schema').textContent = 'v' + SCHEMA_VERSION;
+    document.getElementById('insp-state').textContent = State.get();
+
+    // Session
+    if (session === null) {
+      document.getElementById('insp-session').textContent = 'None';
+      document.getElementById('insp-lastact').textContent = '—';
+    } else {
+      document.getElementById('insp-session').textContent = `Active (${session.logEntries.length} logged)`;
+      document.getElementById('insp-lastact').textContent = formatDate(session.lastActivityTimestamp);
+    }
+
+    // History
+    const count = history.sessions.length;
+    document.getElementById('insp-histcount').textContent = count;
+    if (count === 0) {
+      document.getElementById('insp-oldest').textContent = '—';
+      document.getElementById('insp-newest').textContent = '—';
+    } else {
+      document.getElementById('insp-oldest').textContent = formatDate(history.sessions[0].date);
+      document.getElementById('insp-newest').textContent = formatDate(history.sessions[count - 1].date);
+    }
+
+    // Backup
+    document.getElementById('insp-lastexport').textContent = formatDate(settings.lastExportDate);
+    document.getElementById('insp-lastbackup').textContent = formatDate(settings.lastBackupConfirmedDate);
+  }
+
+  function showRawJson() {
+    const dump = {
+      plan:     Storage.loadKey('plan'),
+      session:  Storage.loadKey('session'),
+      history:  Storage.loadKey('history'),
+      settings: Storage.loadKey('settings')
+    };
+    const text = JSON.stringify(dump, null, 2);
+    // Open in a new tab as plain text so user can copy
+    const blob = new Blob([text], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    // Revoke after a delay to allow the tab to load
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+
+  // Clear history flow — requires typed "ERASE" confirmation
+  function requestClearHistory() {
+    const overlay = document.getElementById('confirm-clear');
+    const input = document.getElementById('confirm-input');
+    const okBtn = document.getElementById('confirm-ok-btn');
+    input.value = '';
+    okBtn.disabled = true;
+    overlay.classList.add('active');
+    input.oninput = () => {
+      okBtn.disabled = input.value !== 'ERASE';
+    };
+    setTimeout(() => input.focus(), 50);
+  }
+
+  function cancelClear() {
+    document.getElementById('confirm-clear').classList.remove('active');
+  }
+
+  function doClear() {
+    const history = Storage.defaultHistory();
+    Storage.saveKey('history', history);
+    Diag.add('storage', 'History cleared by user');
+    cancelClear();
+    refresh();
+    UI.raiseBanner('cleared', 'info', 'History has been cleared.', 'Dismiss', null);
+  }
+
+  return { refresh, showRawJson, requestClearHistory, cancelClear, doClear };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// LIFECYCLE / SESSION MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+// Step 1 scope: session plumbing only. No voice, no workout logic.
+// The close-tab rule is fully implemented here because it's a storage
+// concern, not a voice concern.
+const Lifecycle = (() => {
+
+  const STALE_THRESHOLD_MS = CONFIG.STALE_SESSION_HOURS * 60 * 60 * 1000;
+
+  // On load, check for a stale session and auto-finalize if needed.
+  // Returns 'fresh' (no session), 'resumable' (recent session), or
+  // 'finalized' (stale session rolled to history).
+  function evaluateSessionOnLoad() {
+    const session = Storage.loadKey('session');
+    if (session === null) {
+      Diag.add('lifecycle', 'No prior session on load');
+      return 'fresh';
+    }
+
+    const age = Date.now() - session.lastActivityTimestamp;
+    if (age > STALE_THRESHOLD_MS) {
+      Diag.add('lifecycle', `Stale session (age ${Math.round(age / 3600000)}h) → auto-finalize`);
+      autoFinalizeSession(session);
+      return 'finalized';
+    }
+
+    Diag.add('lifecycle', `Recent session (age ${Math.round(age / 60000)}m) → resumable`);
+    return 'resumable';
+  }
+
+  // Convert a live session to a history entry, apply queued plan
+  // changes, and clear the session key. Per spec Section 6.4.1.
+  function autoFinalizeSession(session) {
+    const history = Storage.loadKey('history');
+    const plan    = Storage.loadKey('plan');
+
+    // Apply any queued next-time changes to the plan
+    if (Array.isArray(session.pendingPlanChanges)) {
+      session.pendingPlanChanges.forEach(ch => {
+        const ex = plan.exercises.find(e => e.id === ch.exId);
+        if (ex && ch.field in ex) {
+          ex[ch.field] = ch.value;
+          Diag.add('lifecycle', `Applied plan change: ${ch.exId}.${ch.field} = ${ch.value}`);
+        }
+      });
+      Storage.saveKey('plan', plan);
+    }
+
+    // Build history record
+    const startMs = new Date(session.startTime).getTime();
+    const endMs   = session.lastActivityTimestamp;
+    const durationMin = Math.max(0, Math.round((endMs - startMs) / 60000));
+
+    const record = {
+      id: session.id,
+      date: session.startTime.slice(0, 10),
+      startTime: session.startTime,
+      duration: durationMin,
+      logEntries: session.logEntries || [],
+      sessionNote: session.sessionNote || '',
+      planChanges: session.pendingPlanChanges || [],
+      autoFinalizedOnClose: true
+    };
+    history.sessions.push(record);
+    Storage.saveKey('history', history);
+
+    // Clear session
+    Storage.saveKey('session', null);
+
+    UI.raiseBanner(
+      'auto-finalized',
+      'info',
+      'Prior session was auto-saved to history.',
+      'Dismiss',
+      null
+    );
+  }
+
+  // Persist the current session (future use in Step 2+). In Step 1,
+  // called only by debugStartSession() to prove the round-trip works.
+  function saveSessionWithHeartbeat(session) {
+    if (session) {
+      session.lastActivityTimestamp = Date.now();
+    }
+    Storage.saveKey('session', session);
+  }
+
+  return {
+    evaluateSessionOnLoad,
+    autoFinalizeSession,
+    saveSessionWithHeartbeat
+  };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// PRE-FLIGHT CHECKS (HTTPS, PWA, online)
+// ═══════════════════════════════════════════════════════════════
+const Preflight = (() => {
+
+  // HTTPS check: returns true if running on http or file: (both bad for mic).
+  // localhost is tolerated for development.
+  function isInsecure() {
+    const proto = location.protocol;
+    const host = location.hostname;
+    if (proto === 'https:') return false;
+    if (host === 'localhost' || host === '127.0.0.1') return false;
+    if (proto === 'file:') return true;
+    if (proto === 'http:') return true;
+    return false;
+  }
+
+  // PWA detection: iOS sets navigator.standalone=true when launched
+  // from Home Screen as a full-screen web app. SpeechRecognition is
+  // broken in that mode per spec Section C3.
+  function isPWAStandalone() {
+    if (typeof navigator !== 'undefined' && navigator.standalone === true) return true;
+    // Android / other: display-mode media query
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+    return false;
+  }
+
+  function isOffline() {
+    return typeof navigator !== 'undefined' && navigator.onLine === false;
+  }
+
+  return { isInsecure, isPWAStandalone, isOffline };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// DEBUG NAMESPACE — exposed as window.__iv and IV for testing
+// ═══════════════════════════════════════════════════════════════
+// Accessible from the browser dev console. Used by the test scenarios
+// documented in the build log.
+const IV = {
+  // Public UI entry points (called from HTML)
+  showScreen: UI.showScreen,
+  inspector: {
+    showRawJson: Inspector.showRawJson,
+    requestClearHistory: Inspector.requestClearHistory,
+    cancelClear: Inspector.cancelClear,
+    doClear: Inspector.doClear
+  },
+
+  // ─── Debug helpers for Step 1 testing ───
+
+  // Create a fake live session to exercise the storage layer
+  debugStartSession() {
+    const session = {
+      schemaVersion: SCHEMA_VERSION,
+      id: Date.now().toString(36),
+      startTime: new Date().toISOString(),
+      currentIndex: 0,
+      logEntries: [],
+      sessionNote: '',
+      pendingPlanChanges: [],
+      lastActivityTimestamp: Date.now()
+    };
+    Storage.saveKey('session', session);
+    State.transition(STATES.LISTENING, 'debugStartSession');
+    UI.raiseBanner(
+      'debug-started',
+      'info',
+      'Debug session started. In Step 2 this will launch the real workout UI.',
+      'Dismiss',
+      null
+    );
+    Diag.add('debug', 'Simulated session start');
+  },
+
+  // Force current session to appear stale (test close-tab rule)
+  debugMakeSessionStale(hoursAgo) {
+    hoursAgo = hoursAgo || 7;
+    const session = Storage.loadKey('session');
+    if (!session) {
+      console.warn('[IV] No session to make stale. Call IV.debugStartSession() first.');
+      return;
+    }
+    session.lastActivityTimestamp = Date.now() - (hoursAgo * 60 * 60 * 1000);
+    Storage.saveKey('session', session);
+    console.log(`[IV] Session timestamped ${hoursAgo}h ago. Reload to trigger auto-finalize.`);
+  },
+
+  // Corrupt a storage key to test recovery
+  debugCorruptKey(keyName) {
+    if (!STORAGE_KEYS[keyName]) {
+      console.warn(`[IV] Unknown key: ${keyName}. Try: plan, session, history, settings`);
+      return;
+    }
+    localStorage.setItem(STORAGE_KEYS[keyName], '{not valid json');
+    console.log(`[IV] ${keyName} corrupted. Reload to trigger recovery.`);
+  },
+
+  // Wipe all Iron Voice data (for clean-slate testing)
+  debugWipeAll() {
+    const confirmed = confirm('Wipe ALL Iron Voice data? (for testing only)');
+    if (!confirmed) return;
+    for (const key of Object.values(STORAGE_KEYS)) {
+      localStorage.removeItem(key);
+    }
+    // Also clean up any corruption stashes
+    const toRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('iv.corrupt.v2.')) toRemove.push(k);
+    }
+    toRemove.forEach(k => localStorage.removeItem(k));
+    console.log('[IV] All data wiped. Reload for fresh start.');
+  },
+
+  // Read-only access to diagnostics
+  diag: {
+    all: () => Diag.all(),
+    clear: () => Diag.clear()
+  },
+
+  // Read-only access to state
+  state: {
+    get: () => State.get(),
+    // Allow forced transition from console for testing
+    debugTransition: (to, reason) => State.transition(to, reason || 'debug console')
+  },
+
+  // Read-only access to storage
+  storage: {
+    loadKey: Storage.loadKey,
+    totalSize: Storage.totalSizeBytes
+  },
+
+  // Constants for console inspection
+  STATES,
+  STORAGE_KEYS,
+  SCHEMA_VERSION,
+  CONFIG
+};
+
+// Expose to global so dev tools can use it
+window.IV = IV;
+window.__iv = IV; // alias for convenience
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+function init() {
+  Diag.load();
+  Diag.add('init', 'App starting', {
+    ua: navigator.userAgent,
+    proto: location.protocol,
+    host: location.hostname
+  });
+
+  // Pre-flight checks in priority order
+  if (Preflight.isPWAStandalone()) {
+    Diag.add('init', 'PWA standalone mode detected — blocking');
+    UI.showScreen('pwa');
+    State.forceReset(STATES.ERROR, 'PWA blocked');
+    return;
+  }
+
+  if (Preflight.isInsecure()) {
+    Diag.add('init', 'Insecure origin detected — blocking');
+    UI.showScreen('https');
+    State.forceReset(STATES.ERROR, 'HTTPS required');
+    return;
+  }
+
+  // Load all keys (this will trigger default-initialization and
+  // corruption recovery as needed)
+  Storage.loadKey('plan');
+  Storage.loadKey('history');
+  Storage.loadKey('settings');
+
+  // Session needs special handling via Lifecycle
+  const sessionStatus = Lifecycle.evaluateSessionOnLoad();
+  Diag.add('init', `Session status: ${sessionStatus}`);
+
+  // Offline banner if applicable
+  if (Preflight.isOffline()) {
+    UI.raiseOfflineBanner();
+  }
+
+  // Register lifecycle listeners
+  window.addEventListener('online',  () => {
+    Diag.add('lifecycle', 'Online');
+    UI.clearBanner('offline');
+  });
+  window.addEventListener('offline', () => {
+    Diag.add('lifecycle', 'Offline');
+    UI.raiseOfflineBanner();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    Diag.add('lifecycle', `visibilitychange → ${document.visibilityState}`);
+  });
+
+  window.addEventListener('beforeunload', () => {
+    Diag.add('lifecycle', 'beforeunload');
+    Diag.save();
+  });
+
+  // Periodic diagnostics save (every 30s while app is open)
+  setInterval(() => Diag.save(), 30000);
+
+  // Default to welcome screen
+  UI.showScreen('welcome');
+  State.transition(STATES.IDLE, 'init complete');
+
+  Diag.add('init', 'Ready');
+  console.log('[IV] Iron Voice Step 1 skeleton loaded. Try IV.diag.all() or IV.state.get() in the console.');
+}
+
+// Start on load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>
