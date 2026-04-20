@@ -326,3 +326,25 @@ Fix: Inspector now uses `session.startTime` (the full ISO timestamp, already sto
 ---
 
 *End of build log — last updated 2026-04-20 (patch 3).*
+
+### 2026-04-20 — Step 2 device testing — patch 3 results
+
+**Working:**
+- Version tag confirmed "patch 3" on device, confirming the correct code is loaded.
+- Plan-change and plan-saved confirmation banners now auto-dismiss correctly (3–4s) and no longer follow the user across screens.
+- Storage Inspector now shows correct oldest/newest session timestamps. The UTC-midnight date bug is fully fixed.
+- Home exit button on workout header works as specified (silent exit when no sets logged, confirmation overlay when sets are logged with session preserved for resume).
+- Tap-to-edit weight/reps with Today Only vs. Save for Next Time working on device.
+- Plan editor CRUD, reorder, alias editing all working.
+
+**Known issue deferred to Step 3:**
+- Banner overlap with workout-header text remains visible on device despite the full `--banner-h` + `MutationObserver` + `requestAnimationFrame` sync implementation. Unclear why it is not taking effect when the identical pattern works on the Storage and other screens. Since the workout-header will be substantially restructured in Step 3 to add the live voice status indicator (currently shown as "STEP 2 · TAP"), we are not investigating further here. Will revisit during Step 3 implementation.
+- The workout screen is judged crowded enough that further banner offset CSS work would add more noise than value at this point. Transient banners are short-lived and users can still read the workout content once they auto-dismiss.
+
+**Step 2 status: Functionally complete with one deferred cosmetic issue on the workout screen banner overlap.**
+
+The remaining Step 2 exit criteria (13 items) have all been verified except where the banner overlap on the workout screen may partially obscure header text during the ~4-second transient window. This does not block Step 3.
+
+---
+
+*End of build log — last updated 2026-04-20 (Step 2 functionally complete).*
