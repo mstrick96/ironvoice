@@ -31,7 +31,7 @@ Each step produces a testable artifact. Do not proceed to the next step until th
 | Step | Name | Status |
 |------|------|--------|
 | 1 | Skeleton + storage architecture | 🟢 Complete |
-| 2 | State machine + UI shell | 🟡 In progress — bug fixes applied |
+| 2 | State machine + UI shell | 🟢 Complete |
 | 3 | Voice loop (Layer 1 wake word + basic commands) | ⚪ Not started |
 | 4 | Full command grammar (Layer 2) | ⚪ Not started |
 | 5 | Layer 3 intent matching | ⚪ Not started |
@@ -399,3 +399,15 @@ The remaining Step 2 exit criteria (13 items) have all been verified except wher
 ---
 
 *End of build log — last updated 2026-04-20 (patch 4: ADD SET feature with guardrails).*
+
+### 2026-04-20 — Step 2 complete
+
+All patch-4 test scenarios verified on device. After ending a workout with Save-for-Next-Time applied, the new set counts correctly appear in subsequent sessions. Plan editor reflects the updated counts. All 13 Step 2 exit criteria are functionally met. The workout-screen banner-overlap cosmetic issue remains deferred to Step 3 (workout-header will be restructured when the live voice status indicator replaces "STEP 2 · TAP").
+
+**Step 2 status: 🟢 Complete.**
+
+Step 3 is cleared to begin.
+
+---
+
+*End of build log — last updated 2026-04-20 (Step 2 complete).*
