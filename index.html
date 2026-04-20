@@ -10,6 +10,7 @@
    BASE STYLES
    ══════════════════════════════════════════════════════════════ */
 :root {
+  --banner-h: 0px;
   --bg: #0a0a0b;
   --surface-1: #161618;
   --surface-2: #222226;
@@ -57,7 +58,7 @@ body {
   display: none;
   flex-direction: column;
   padding: 0 28px;
-  padding-top: max(40px, env(safe-area-inset-top));
+  padding-top: max(var(--banner-h), 40px, env(safe-area-inset-top));
   padding-bottom: max(16px, env(safe-area-inset-bottom));
   overflow-y: auto;
 }
@@ -242,7 +243,6 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 12px 24px 8px;
-  padding-top: max(16px, env(safe-area-inset-top));
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
 }
@@ -3019,6 +3019,25 @@ function init() {
   Diag.add('init', 'Ready — Step 2');
   console.log('[IV] Iron Voice Step 2 loaded. Session:', sessionStatus, '| IV.session.getData() | IV.state.get()');
 }
+
+// ═══════════════════════════════════════════════════════════════
+// BANNER OFFSET SYNC
+// Keeps --banner-h in sync with the fixed banner-area height so
+// all screens automatically push their content below any banners.
+// Using MutationObserver means no call site needs to remember to
+// trigger this — any DOM change in #banner-area fires it.
+// ═══════════════════════════════════════════════════════════════
+(function initBannerSync() {
+  const area = document.getElementById('banner-area');
+  if (!area) return;
+  function sync() {
+    const h = area.offsetHeight;
+    document.documentElement.style.setProperty('--banner-h', h > 0 ? h + 'px' : '0px');
+  }
+  const obs = new MutationObserver(sync);
+  obs.observe(area, { childList: true, subtree: true, attributes: true });
+  sync(); // initial state
+})();
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
