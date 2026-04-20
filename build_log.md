@@ -348,3 +348,54 @@ The remaining Step 2 exit criteria (13 items) have all been verified except wher
 ---
 
 *End of build log — last updated 2026-04-20 (Step 2 functionally complete).*
+
+### 2026-04-20 — Step 2 ADD SET feature (patch 4)
+
+**Feature added:** Mid-workout set addition with evidence-based guardrails.
+
+**Motivation:** The user (80 years old, training for strength maintenance per sarcopenia research) described a progression strategy of starting at 1 set × 20 reps, adding sets first as he adapts, then eventually increasing weight and dropping back to 1 set. Current app forced him to end the workout and use the plan editor to add sets — not a realistic mid-workout workflow. Discussion of the feature surfaced a brief evidence review on resistance training for 80+ adults. Consensus: 2–3 sets is the evidence-based sweet spot for this age group; progressing reps before load is standard advice; balance training pairs multiplicatively with resistance training.
+
+**Behavior added:**
+
+1. **ADD SET button** appears on the workout card only when all currently-shown dots are logged (prevents accidental extras before the planned work is complete). Tapping it adds one dot and tracks the count in a new session field `extraSetsToday[exId]`. Extras are today-only by default.
+
+2. **Save N sets for next time button** appears once at least one extra dot has been added this session. Tapping it queues (or replaces) a `pendingPlanChange` of `{ field: 'sets', value: currentEffectiveCount }`. Button label changes to "✓ N sets saved for next time" with green styling once saved. Subsequent taps overwrite the pending change with the latest count (so the user can add more extras, then re-tap Save, and the plan update tracks the current dot count).
+
+3. **Undo Last Set** continues to work as before — if an extra set has been logged and then undone, the dot count stays (user must separately navigate away or tap Undo until all logs are cleared). Extras are preserved across navigation within the session so the user can leave and return to an exercise without losing ADD SET taps.
+
+**Guardrails (evidence-based):**
+
+- **One-time 3+ sets warning per session.** First time the effective dot count for any exercise reaches 4 (i.e., the user has added the 3rd extra beyond a 1-set planned exercise, or added beyond a 3-set exercise), a single dismissible banner appears with message: "Most guidelines cap strength training at 2–3 sets for your age group. Consider increasing weight on your next progression instead." Session-scoped flag `capWarningShown` prevents repeat. Auto-dismiss 10s.
+
+- **Progression prompt on Summary screen.** If the user used Save for Next Time on `sets` field for 3 or more distinct exercises in one session, a banner appears on the Summary screen: "You increased sets on N exercises today. When you're ready for the next progression step, consider increasing weight and dropping back to 1 set." Auto-dismiss 12s. Filters `pendingPlanChanges` to only `field === 'sets'`, so weight/reps changes don't inflate the count.
+
+**Implementation notes:**
+
+- New Session module methods: `addSetDotOnly()`, `saveSetCountForNextTime()`, `getEffectivePlannedSets(exId)`, `isSetCountSavedForNextTime(exId)`. Exported via the return block.
+
+- Forward-compat: older sessions (resumed from Step 2 pre-patch-4 localStorage) are patched in `resume()` to add `extraSetsToday = {}` and `capWarningShown = false` if missing.
+
+- `_renderSetArea` now calls `getEffectivePlannedSets(exId)` instead of `getEffectiveValue(exId, 'sets')` so extra dots persist across navigation.
+
+- `Save for Next Time` coalesces repeated taps: the filter `ch => !(ch.exId === ex.id && ch.field === 'sets')` removes any prior `sets` change for this exercise before pushing the new one. No duplicate pending changes accumulate.
+
+- Ordering fix: `Summary.show()` raises the progression-tip banner AFTER `UI.showScreen('summary')`, because `showScreen` calls `clearTransientBanners` at its top, which would wipe a banner raised before the screen change.
+
+**Version tag:** "VERSION 2.0.1 · STEP 2 · patch 4"
+
+**Test scenarios for device testing:**
+
+1. Start workout. First exercise has planned 1 set. Verify: no ADD SET button visible (planned sets not yet logged).
+2. Tap the one set dot. Verify: ADD SET button appears.
+3. Tap ADD SET. Verify: second dot appears. "Save 2 sets for next time" button appears.
+4. Tap the new dot to log it. Verify: ADD SET button appears again (now all dots logged).
+5. Tap ADD SET a second time. Verify: third dot appears. "Save 3 sets for next time" button now says 3.
+6. Tap Save for Next Time. Verify: plan-change banner appears, button becomes "✓ 3 sets saved for next time" in green.
+7. Tap ADD SET a third time (would be 4 total). Verify: one-time "most guidelines cap at 2–3 sets" warning banner appears. Button label updates to "Save 4 sets for next time" (does not auto-save — user must tap Save again to update the pending change to 4).
+8. Navigate to another exercise, back. Verify: all extra dots and saved state preserved.
+9. Repeat Save for Next Time on 3 different exercises. End the workout. Verify: Summary screen shows "3 plan updates saved for next session" note AND the progression-prompt banner appears.
+10. Next session: verify the plan now reflects the new set counts.
+
+---
+
+*End of build log — last updated 2026-04-20 (patch 4: ADD SET feature with guardrails).*
