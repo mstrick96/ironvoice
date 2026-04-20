@@ -25,19 +25,16 @@
   --err: #ff5252;
   --border: rgba(255, 255, 255, 0.07);
 }
-
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
 }
-
 html, body {
   height: 100%;
   overflow: hidden;
 }
-
 body {
   background: var(--bg);
   color: var(--text);
@@ -50,7 +47,7 @@ body {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   OVERLAY / SCREEN STYLES
+   SCREENS
    ══════════════════════════════════════════════════════════════ */
 .screen {
   position: absolute;
@@ -59,19 +56,21 @@ body {
   z-index: 10;
   display: none;
   flex-direction: column;
-  padding: 40px 28px;
+  padding: 0 28px;
   padding-top: max(40px, env(safe-area-inset-top));
-  padding-bottom: max(40px, env(safe-area-inset-bottom));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
   overflow-y: auto;
 }
 .screen.active { display: flex; }
-
-.screen-center {
+.screen.screen-center {
   align-items: center;
   justify-content: center;
   text-align: center;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   WELCOME SCREEN
+   ══════════════════════════════════════════════════════════════ */
 .logo {
   font-size: 64px;
   font-weight: 900;
@@ -91,18 +90,24 @@ body {
   font-size: 11px;
   color: var(--text-3);
   letter-spacing: 2px;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
-
-.hint {
-  font-size: 14px;
+.welcome-plan-info {
+  font-size: 15px;
   color: var(--text-2);
-  line-height: 1.75;
-  margin-bottom: 32px;
-  max-width: 320px;
+  margin-bottom: 28px;
+  line-height: 1.6;
 }
-.hint strong { color: var(--accent); }
+.welcome-plan-info strong { color: var(--accent); }
+.backup-nudge {
+  font-size: 12px;
+  color: var(--warn);
+  margin-bottom: 16px;
+}
 
+/* ══════════════════════════════════════════════════════════════
+   BUTTONS
+   ══════════════════════════════════════════════════════════════ */
 .btn-primary {
   background: var(--accent);
   border: none;
@@ -116,9 +121,9 @@ body {
   box-shadow: 0 4px 32px var(--accent-glow);
   -webkit-appearance: none;
   margin-bottom: 14px;
+  width: 100%;
 }
 .btn-primary:active { opacity: 0.85; }
-
 .btn-sec {
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -129,9 +134,9 @@ body {
   border-radius: 50px;
   cursor: pointer;
   margin: 6px 4px;
+  -webkit-appearance: none;
 }
 .btn-sec:active { background: var(--surface-3); }
-
 .btn-danger {
   background: transparent;
   border: 1px solid var(--err);
@@ -141,8 +146,20 @@ body {
   padding: 10px 24px;
   border-radius: 8px;
   cursor: pointer;
+  -webkit-appearance: none;
 }
 .btn-danger:active { background: rgba(255, 82, 82, 0.15); }
+.btn-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.btn-row .btn-sec {
+  flex: 1;
+  margin: 0;
+  padding: 12px 8px;
+  text-align: center;
+}
 
 /* ══════════════════════════════════════════════════════════════
    BANNER STYLES
@@ -183,7 +200,793 @@ body {
   text-decoration: underline;
   cursor: pointer;
   padding: 4px 8px;
+  white-space: nowrap;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   RESUME SCREEN
+   ══════════════════════════════════════════════════════════════ */
+.resume-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.resume-ex-name {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: var(--text);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.resume-stat {
+  font-size: 14px;
+  color: var(--text-2);
+  margin-bottom: 28px;
+  line-height: 1.8;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   WORKOUT SCREEN
+   ══════════════════════════════════════════════════════════════ */
+#screen-workout {
+  padding: 0;
+  overflow: hidden;
+}
+.workout-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px 8px;
+  padding-top: max(16px, env(safe-area-inset-top));
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+.workout-brand {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: var(--accent);
+}
+.workout-progress {
+  font-size: 12px;
+  color: var(--text-3);
+  letter-spacing: 0.5px;
+}
+.voice-status-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px 8px;
+}
+/* Workout main content — fills available height */
+.workout-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.exercise-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 16px 24px 8px;
+  flex-shrink: 0;
+}
+.exercise-name {
+  font-size: 38px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: var(--text);
+  text-transform: uppercase;
+  line-height: 1.05;
+  margin-bottom: 18px;
+  word-break: break-word;
+}
+/* Value buttons (tappable weight/reps/level/duration) */
+.ex-values {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.value-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  padding: 12px 18px;
+  min-width: 88px;
+  cursor: pointer;
+  -webkit-appearance: none;
+}
+.value-btn:active {
+  background: var(--surface-3);
+  border-color: var(--accent);
+}
+.value-num {
+  font-size: 50px;
+  font-weight: 900;
+  color: var(--text);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.value-unit {
+  font-size: 11px;
+  color: var(--text-3);
+  letter-spacing: 2px;
+  margin-top: 3px;
+  text-transform: uppercase;
+}
+.value-edit-hint {
+  font-size: 9px;
+  color: var(--accent);
+  letter-spacing: 1px;
+  margin-top: 1px;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.value-sep {
+  font-size: 24px;
+  color: var(--text-3);
+  user-select: none;
+}
+/* Set area — dots for strength, button for timed */
+.set-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 10px;
+  min-height: 70px;
+}
+.set-dots-label {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.set-dots {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+.set-dot {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.2);
+  cursor: pointer;
+  background: transparent;
+  transition: background 0.15s, border-color 0.15s;
+  -webkit-appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: transparent;
+}
+.set-dot.done {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: var(--bg);
+}
+.set-dot.done::after { content: '✓'; }
+.set-dot:not(.done):active {
+  background: rgba(0, 230, 118, 0.2);
+  border-color: var(--ok);
+}
+.done-btn {
+  width: 160px;
+  height: 56px;
+  border-radius: 28px;
+  border: 2px solid rgba(255,255,255,0.2);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  text-transform: uppercase;
+}
+.done-btn.done {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: var(--bg);
+}
+.done-btn:not(.done):active {
+  background: rgba(0, 230, 118, 0.15);
+  border-color: var(--ok);
+}
+.undo-btn {
+  font-size: 11px;
+  color: var(--text-3);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  letter-spacing: 0.5px;
+  text-decoration: underline;
+  text-decoration-color: var(--text-3);
+}
+/* Coaching note */
+.coaching-note {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+  text-align: center;
+  padding: 0 4px;
+  margin-bottom: 6px;
+  opacity: 0.8;
+}
+/* Logged confirmation badge */
+.logged-badge {
+  font-size: 13px;
+  color: var(--ok);
+  font-weight: 700;
+  min-height: 20px;
+  text-align: center;
+  letter-spacing: 0.3px;
+  transition: opacity 0.4s;
+}
+/* Navigation buttons */
+.workout-nav {
+  display: flex;
+  gap: 8px;
+  padding: 8px 20px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+}
+.nav-btn {
+  flex: 1;
+  padding: 12px 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 10px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  -webkit-appearance: none;
+}
+.nav-btn:active { background: var(--surface-3); }
+.nav-btn:disabled { opacity: 0.3; cursor: default; }
+.nav-btn.danger-nav { border-color: var(--err); color: var(--err); }
+.nav-btn.danger-nav:active { background: rgba(255,82,82,0.1); }
+/* Tab bar */
+.tab-bar {
+  display: flex;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.tab-btn {
+  flex: 1;
+  padding: 10px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-appearance: none;
+}
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.tab-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.tab-pane { display: none; padding: 4px 20px; }
+.tab-pane.active { display: block; }
+/* Exercise list items */
+.ex-list-item {
+  display: flex;
+  align-items: center;
+  padding: 11px 4px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  gap: 12px;
+}
+.ex-list-item:active { background: var(--surface-1); }
+.ex-list-item.current {
+  background: var(--accent-dim);
+  border-radius: 8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-bottom-color: transparent;
+}
+.ex-list-done-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-3);
+  flex-shrink: 0;
+}
+.ex-list-done-dot.done {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+.ex-list-name { flex: 1; font-size: 14px; color: var(--text); font-weight: 500; }
+.ex-list-detail { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+.ex-list-arrow { color: var(--accent); font-size: 10px; }
+/* Session log entries */
+.log-entry {
+  display: flex;
+  align-items: baseline;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+}
+.log-entry-name { font-size: 13px; color: var(--text); font-weight: 600; flex-shrink: 0; }
+.log-entry-detail { flex: 1; font-size: 12px; color: var(--text-2); }
+.log-entry-time { font-size: 11px; color: var(--text-3); flex-shrink: 0; }
+
+/* ══════════════════════════════════════════════════════════════
+   EDIT SHEET (tap-to-edit values)
+   ══════════════════════════════════════════════════════════════ */
+.edit-sheet-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  z-index: 40;
+  display: none;
+  align-items: flex-end;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+.edit-sheet-overlay.active { display: flex; }
+.edit-sheet-card {
+  width: 100%;
+  background: var(--surface-1);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px 20px 0 0;
+  padding: 24px;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+.edit-sheet-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  text-align: center;
+  margin-bottom: 20px;
+}
+.edit-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.edit-field label {
+  font-size: 15px;
+  color: var(--text-2);
+  font-weight: 500;
+}
+.edit-field input {
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 28px;
+  font-weight: 900;
+  padding: 8px 14px;
+  border-radius: 10px;
+  width: 110px;
+  text-align: right;
+  -webkit-appearance: none;
+  outline: none;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.edit-field input:focus { border-color: var(--accent); }
+.edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+.edit-cancel-btn {
+  flex: 0 0 auto;
+  padding: 13px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-3);
+  -webkit-appearance: none;
+}
+.edit-today-btn {
+  flex: 1;
+  padding: 13px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  letter-spacing: 0.3px;
+  -webkit-appearance: none;
+}
+.edit-today-btn:active { background: var(--surface-3); }
+.edit-save-btn {
+  flex: 1;
+  padding: 13px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--accent);
+  border: none;
+  color: white;
+  letter-spacing: 0.3px;
+  -webkit-appearance: none;
+  box-shadow: 0 2px 12px var(--accent-glow);
+}
+.edit-save-btn:active { opacity: 0.85; }
+
+/* ══════════════════════════════════════════════════════════════
+   END WORKOUT OVERLAY
+   ══════════════════════════════════════════════════════════════ */
+.end-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.80);
+  z-index: 40;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+.end-overlay.active { display: flex; }
+.end-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px 24px;
+  width: 100%;
+  max-width: 340px;
+  text-align: center;
+}
+.end-card-title {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.end-card-body {
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+.end-card-stats {
+  font-size: 13px;
+  color: var(--text-3);
+  margin-bottom: 20px;
+  line-height: 1.7;
+}
+.end-card-actions {
+  display: flex;
+  gap: 10px;
+}
+.end-card-actions button {
+  flex: 1;
+  padding: 14px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 14px;
+  -webkit-appearance: none;
+  border: none;
+}
+.end-keep-going {
+  background: var(--surface-2);
+  color: var(--text-2);
+  border: 1px solid var(--border) !important;
+}
+.end-confirm-btn {
+  background: var(--ok);
+  color: var(--bg);
+}
+.end-confirm-btn:active { opacity: 0.85; }
+
+/* ══════════════════════════════════════════════════════════════
+   SUMMARY SCREEN
+   ══════════════════════════════════════════════════════════════ */
+.summary-header {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: var(--ok);
+  text-align: center;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.summary-sub {
+  font-size: 12px;
+  color: var(--text-3);
+  letter-spacing: 2px;
+  text-align: center;
+  margin-bottom: 24px;
+}
+.summary-stats-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.summary-stat-card {
+  flex: 1;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 10px;
+  text-align: center;
+}
+.summary-stat-num {
+  font-size: 32px;
+  font-weight: 900;
+  color: var(--text);
+  line-height: 1;
+}
+.summary-stat-label {
+  font-size: 10px;
+  color: var(--text-3);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+.summary-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.summary-log-list {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.summary-log-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.summary-log-item:last-child { border-bottom: none; }
+.summary-log-name { color: var(--text); font-weight: 500; }
+.summary-log-val { color: var(--text-2); }
+.summary-plan-note {
+  font-size: 13px;
+  color: var(--text-2);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PLAN EDITOR
+   ══════════════════════════════════════════════════════════════ */
+.screen-title {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-align: center;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+.screen-subtitle {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  margin-bottom: 18px;
+  line-height: 1.5;
+}
+.plan-ex-row {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.plan-ex-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.plan-ex-header:active { background: var(--surface-2); }
+.plan-reorder-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex-shrink: 0;
+}
+.plan-reorder-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  font-size: 13px;
+  padding: 2px 5px;
+  cursor: pointer;
+  line-height: 1;
+  -webkit-appearance: none;
+}
+.plan-reorder-btn:active { color: var(--accent); }
+.plan-ex-info { flex: 1; min-width: 0; }
+.plan-ex-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.plan-ex-summary { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.plan-ex-toggle-btn {
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  -webkit-appearance: none;
+}
+.plan-ex-form {
+  display: none;
+  padding: 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-1);
+}
+.plan-ex-form.open { display: block; }
+.plan-field {
+  margin-bottom: 12px;
+}
+.plan-field label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.plan-field .field-hint {
+  display: block;
+  font-size: 10px;
+  color: var(--text-3);
+  margin-top: 4px;
+  line-height: 1.4;
+  letter-spacing: 0;
+  font-weight: 400;
+  text-transform: none;
+}
+.plan-field input,
+.plan-field textarea,
+.plan-field select {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 15px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  -webkit-appearance: none;
+  outline: none;
+  font-family: inherit;
+}
+.plan-field input[type="number"] {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.plan-field input:focus,
+.plan-field textarea:focus,
+.plan-field select:focus { border-color: var(--accent); }
+.plan-field textarea {
+  resize: vertical;
+  min-height: 64px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.plan-field select {
+  background-image: none;
+}
+.plan-fields-row {
+  display: flex;
+  gap: 8px;
+}
+.plan-fields-row .plan-field { flex: 1; }
+.plan-ex-form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+.plan-save-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--accent);
+  border: none;
+  color: white;
+  -webkit-appearance: none;
+}
+.plan-save-btn:active { opacity: 0.85; }
+.plan-delete-btn {
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--err);
+  color: var(--err);
+  -webkit-appearance: none;
+}
+.plan-delete-btn:active { background: rgba(255,82,82,0.1); }
+.plan-add-section {
+  padding: 16px 0 8px;
+  border-top: 1px solid var(--border);
+  margin-top: 10px;
+  text-align: center;
+}
+.plan-add-btn {
+  background: var(--surface-2);
+  border: 1px dashed var(--text-3);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 32px;
+  border-radius: 10px;
+  cursor: pointer;
+  width: 100%;
+  -webkit-appearance: none;
+}
+.plan-add-btn:active { background: var(--surface-3); }
 
 /* ══════════════════════════════════════════════════════════════
    STORAGE INSPECTOR
@@ -222,7 +1025,6 @@ body {
 .inspector-row:last-child { border-bottom: none; }
 .inspector-row-label { color: var(--text-2); }
 .inspector-row-value { color: var(--text); font-weight: 600; }
-
 .inspector-actions {
   display: flex;
   flex-direction: column;
@@ -239,6 +1041,7 @@ body {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
+  -webkit-appearance: none;
 }
 .inspector-actions button:active { background: var(--surface-3); }
 .inspector-actions button.btn-danger {
@@ -249,13 +1052,14 @@ body {
 .inspector-actions button.btn-danger:active {
   background: rgba(255, 82, 82, 0.15);
 }
-
 .inspector-back {
   margin-top: 20px;
   text-align: center;
 }
 
-/* Confirmation dialog for clear */
+/* ══════════════════════════════════════════════════════════════
+   CONFIRM DIALOG (clear history)
+   ══════════════════════════════════════════════════════════════ */
 .confirm-overlay {
   position: absolute;
   inset: 0;
@@ -275,18 +1079,8 @@ body {
   max-width: 360px;
   width: 100%;
 }
-.confirm-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--err);
-  margin-bottom: 10px;
-}
-.confirm-text {
-  font-size: 14px;
-  color: var(--text-2);
-  line-height: 1.5;
-  margin-bottom: 16px;
-}
+.confirm-title { font-size: 18px; font-weight: 700; color: var(--err); margin-bottom: 10px; }
+.confirm-text { font-size: 14px; color: var(--text-2); line-height: 1.5; margin-bottom: 16px; }
 .confirm-input {
   width: 100%;
   background: var(--surface-3);
@@ -300,10 +1094,7 @@ body {
   -webkit-appearance: none;
 }
 .confirm-input:focus { border-color: var(--err); }
-.confirm-actions {
-  display: flex;
-  gap: 10px;
-}
+.confirm-actions { display: flex; gap: 10px; }
 .confirm-actions button {
   flex: 1;
   padding: 10px;
@@ -311,120 +1102,14 @@ body {
   font-weight: 600;
   cursor: pointer;
   border: none;
+  -webkit-appearance: none;
 }
-.confirm-cancel {
-  background: var(--surface-2);
-  color: var(--text-2);
-}
-.confirm-ok {
-  background: var(--err);
-  color: white;
-}
-.confirm-ok:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+.confirm-cancel { background: var(--surface-2); color: var(--text-2); }
+.confirm-ok { background: var(--err); color: white; }
+.confirm-ok:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ══════════════════════════════════════════════════════════════
-   STEP 1 DEBUG PANEL (will be removed in Step 2)
-   ══════════════════════════════════════════════════════════════ */
-.debug-panel {
-  margin-top: 40px;
-  width: 100%;
-  max-width: 340px;
-  background: var(--surface-1);
-  border: 1px dashed var(--text-3);
-  border-radius: 12px;
-  padding: 16px;
-}
-.debug-panel-title {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--warn);
-  text-align: center;
-  margin-bottom: 6px;
-}
-.debug-panel-hint {
-  font-size: 11px;
-  color: var(--text-3);
-  text-align: center;
-  margin-bottom: 14px;
-  line-height: 1.4;
-}
-.debug-panel-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.debug-panel-buttons button {
-  width: 100%;
-  padding: 10px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  color: var(--text-2);
-  font-size: 13px;
-  font-weight: 500;
-  border-radius: 6px;
-  cursor: pointer;
-  font-family: inherit;
-}
-.debug-panel-buttons button:active {
-  background: var(--surface-3);
-}
-.debug-panel-buttons button.debug-wipe {
-  border-color: var(--err);
-  color: var(--err);
-}
-.debug-panel-buttons button.debug-wipe:active {
-  background: rgba(255, 82, 82, 0.15);
-}
-.debug-panel-status {
-  margin-top: 10px;
-  text-align: center;
-  font-size: 11px;
-  color: var(--ok);
-  min-height: 14px;
-  font-style: italic;
-}
-.diaglog-entry {
-  padding: 6px 8px;
-  margin-bottom: 4px;
-  background: var(--surface-1);
-  border-left: 2px solid var(--accent);
-  border-radius: 0 6px 6px 0;
-  word-break: break-word;
-}
-.diaglog-entry.cat-state { border-left-color: var(--ok); }
-.diaglog-entry.cat-storage { border-left-color: var(--warn); }
-.diaglog-entry.cat-lifecycle { border-left-color: var(--accent); }
-.diaglog-entry.cat-init { border-left-color: var(--text-3); }
-.diaglog-entry.cat-ui { border-left-color: var(--text-3); }
-.diaglog-entry.cat-debug { border-left-color: var(--err); }
-.diaglog-time {
-  color: var(--text-3);
-  margin-right: 6px;
-  font-size: 10px;
-}
-.diaglog-cat {
-  color: var(--text-2);
-  font-weight: 700;
-  margin-right: 6px;
-  text-transform: uppercase;
-  font-size: 10px;
-}
-.diaglog-msg {
-  color: var(--text);
-}
-.diaglog-extra {
-  color: var(--text-3);
-  font-size: 10px;
-  margin-top: 2px;
-  white-space: pre-wrap;
-}
-
-/* ══════════════════════════════════════════════════════════════
-   STATE STATUS (Step 1 placeholder — shows current machine state)
+   STATE BADGE (persists across screens)
    ══════════════════════════════════════════════════════════════ */
 .state-badge {
   position: fixed;
@@ -440,59 +1125,159 @@ body {
   text-transform: uppercase;
   z-index: 100;
   font-family: 'SF Mono', Menlo, monospace;
+  pointer-events: none;
 }
 </style>
 </head>
 <body>
 
 <!-- ═══════════════════════════════════════════════════════════════
-     BANNER AREA (dynamically populated; stays above screens)
+     BANNER AREA
      ═══════════════════════════════════════════════════════════════ -->
 <div id="banner-area"></div>
 
 <!-- ═══════════════════════════════════════════════════════════════
-     SCREEN: Welcome (default landing)
+     SCREEN: Welcome
      ═══════════════════════════════════════════════════════════════ -->
 <div class="screen screen-center" id="screen-welcome">
   <div class="logo">IRON<br>VOICE</div>
   <div class="logo-sub">Workout Assistant</div>
-  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 1</div>
-  <div class="hint">
-    <strong>Step 1 Skeleton.</strong><br><br>
-    Storage architecture and state machine only.<br>
-    No voice, no workout UI yet.
-  </div>
-  <button class="btn-primary" onclick="IV.debugStartSession()">SIMULATE START</button>
-  <button class="btn-sec" onclick="IV.showScreen('storage')">Storage Inspector</button>
-
-  <!-- ─── Step 1 debug panel — will be removed in Step 2 ─── -->
-  <div class="debug-panel">
-    <div class="debug-panel-title">STEP 1 DEBUG TOOLS</div>
-    <div class="debug-panel-hint">For target-device testing. These buttons will be removed in Step 2.</div>
-    <div class="debug-panel-buttons">
-      <button onclick="IV.debugMakeSessionStale(7)">Make Session Stale (7h)</button>
-      <button onclick="IV.debugCorruptKey('plan')">Corrupt Plan</button>
-      <button onclick="IV.debugCorruptKey('history')">Corrupt History</button>
-      <button onclick="IV.debugCorruptKey('settings')">Corrupt Settings</button>
-      <button onclick="IV.showScreen('diaglog')">View Diagnostic Log</button>
-      <button onclick="location.reload()">Reload App</button>
-      <button class="debug-wipe" onclick="IV.debugWipeAll()">Wipe All IV Data</button>
-    </div>
-    <div class="debug-panel-status" id="debug-status"></div>
+  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 2</div>
+  <div class="welcome-plan-info" id="welcome-plan-info">Loading plan…</div>
+  <button class="btn-primary" onclick="Session.start()">BEGIN WORKOUT</button>
+  <div class="btn-row">
+    <button class="btn-sec" onclick="PlanEditor.open()">Edit Plan</button>
+    <button class="btn-sec" onclick="UI.showScreen('storage')">Storage</button>
   </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
-     SCREEN: Diagnostic Log (Step 1 only)
+     SCREEN: Resume
      ═══════════════════════════════════════════════════════════════ -->
-<div class="screen" id="screen-diaglog">
-  <div class="inspector-title">DIAGNOSTIC LOG</div>
-  <div style="font-size: 12px; color: var(--text-3); margin-bottom: 14px; text-align: center;">
-    Most recent at top. State transitions, storage events, lifecycle changes.
+<div class="screen screen-center" id="screen-resume">
+  <div class="resume-title">Session In Progress</div>
+  <div class="exercise-name resume-ex-name" id="resume-ex-name">—</div>
+  <div class="resume-stat" id="resume-stat"></div>
+  <button class="btn-primary" onclick="Session.resume()">Resume Workout</button>
+  <button class="btn-sec" onclick="Session.startFresh()">Start Fresh</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SCREEN: Workout (main)
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-workout">
+  <!-- Header -->
+  <div class="workout-header">
+    <div class="workout-brand">IRON VOICE</div>
+    <div class="workout-progress" id="workout-progress">Exercise 1 of 13</div>
+    <div class="voice-status-badge" id="voice-status-badge">STEP 2 · TAP</div>
   </div>
-  <div id="diaglog-entries" style="font-family: 'SF Mono', Menlo, monospace; font-size: 11px; line-height: 1.5;"></div>
-  <div class="inspector-back">
-    <button class="btn-sec" onclick="IV.showScreen('welcome')">Back to Welcome</button>
+
+  <div class="workout-body">
+    <!-- Exercise card -->
+    <div class="exercise-card">
+      <div class="exercise-name" id="ex-name">—</div>
+
+      <!-- Strength values (weight × reps) -->
+      <div class="ex-values" id="strength-values">
+        <button class="value-btn" onclick="WorkoutUI.openEditSheet()" aria-label="Tap to edit weight and reps">
+          <div class="value-num" id="val-weight">—</div>
+          <div class="value-unit">lbs</div>
+          <div class="value-edit-hint">TAP TO EDIT</div>
+        </button>
+        <div class="value-sep">×</div>
+        <button class="value-btn" onclick="WorkoutUI.openEditSheet()" aria-label="Tap to edit weight and reps">
+          <div class="value-num" id="val-reps">—</div>
+          <div class="value-unit">reps</div>
+          <div class="value-edit-hint">TAP TO EDIT</div>
+        </button>
+      </div>
+
+      <!-- Timed values (level · duration) -->
+      <div class="ex-values" id="timed-values" style="display:none">
+        <button class="value-btn" onclick="WorkoutUI.openEditSheet()" aria-label="Tap to edit level and duration">
+          <div class="value-num" id="val-level">—</div>
+          <div class="value-unit">level</div>
+          <div class="value-edit-hint">TAP TO EDIT</div>
+        </button>
+        <div class="value-sep">·</div>
+        <button class="value-btn" onclick="WorkoutUI.openEditSheet()" aria-label="Tap to edit level and duration">
+          <div class="value-num" id="val-duration">—</div>
+          <div class="value-unit">min</div>
+          <div class="value-edit-hint">TAP TO EDIT</div>
+        </button>
+      </div>
+
+      <!-- Set dots / done button (rendered dynamically) -->
+      <div class="set-area" id="set-area"></div>
+
+      <!-- Coaching note -->
+      <div class="coaching-note" id="coaching-note"></div>
+
+      <!-- Logged confirmation badge -->
+      <div class="logged-badge" id="logged-badge"></div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="workout-nav">
+      <button class="nav-btn" id="btn-prev" onclick="Session.navigate(-1)">◀ PREV</button>
+      <button class="nav-btn danger-nav" id="btn-end" onclick="EndConfirm.show()">END</button>
+      <button class="nav-btn" id="btn-next" onclick="Session.navigate(1)">NEXT ▶</button>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="exercises" onclick="WorkoutUI.switchTab('exercises')">Exercises</button>
+      <button class="tab-btn" data-tab="log" onclick="WorkoutUI.switchTab('log')">Session Log</button>
+    </div>
+
+    <!-- Tab content -->
+    <div class="tab-content">
+      <div class="tab-pane active" id="tab-exercises"></div>
+      <div class="tab-pane" id="tab-log"></div>
+    </div>
+  </div><!-- /workout-body -->
+</div><!-- /screen-workout -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SCREEN: Summary
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-summary">
+  <div class="summary-header">Workout Complete</div>
+  <div class="summary-sub" id="summary-date"></div>
+  <div class="summary-stats-row">
+    <div class="summary-stat-card">
+      <div class="summary-stat-num" id="sum-duration">—</div>
+      <div class="summary-stat-label">minutes</div>
+    </div>
+    <div class="summary-stat-card">
+      <div class="summary-stat-num" id="sum-logged">—</div>
+      <div class="summary-stat-label">exercises</div>
+    </div>
+    <div class="summary-stat-card">
+      <div class="summary-stat-num" id="sum-sets">—</div>
+      <div class="summary-stat-label">sets total</div>
+    </div>
+  </div>
+  <div class="summary-section-title">Exercises Logged</div>
+  <div class="summary-log-list" id="summary-log-list"></div>
+  <div class="summary-plan-note" id="summary-plan-note" style="display:none"></div>
+  <button class="btn-primary" style="margin-top:8px" onclick="Summary.done()">Back to Home</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SCREEN: Plan Editor
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-plan-editor">
+  <div class="screen-title">Plan Editor</div>
+  <div class="screen-subtitle">Tap an exercise to edit. Changes save when you tap Done.</div>
+  <div id="plan-editor-list"></div>
+  <div class="plan-add-section">
+    <button class="plan-add-btn" onclick="PlanEditor.addExercise()">+ Add Exercise</button>
+  </div>
+  <div style="margin-top:16px;text-align:center">
+    <button class="btn-primary" style="margin-bottom:8px" onclick="PlanEditor.close()">Done — Save Plan</button>
+    <button class="btn-sec" onclick="PlanEditor.cancel()">Cancel Changes</button>
   </div>
 </div>
 
@@ -501,7 +1286,6 @@ body {
      ═══════════════════════════════════════════════════════════════ -->
 <div class="screen" id="screen-storage">
   <div class="inspector-title">STORAGE</div>
-
   <div class="inspector-section">
     <h3>Overview</h3>
     <div class="inspector-row">
@@ -517,7 +1301,6 @@ body {
       <span class="inspector-row-value" id="insp-state">—</span>
     </div>
   </div>
-
   <div class="inspector-section">
     <h3>Session</h3>
     <div class="inspector-row">
@@ -529,7 +1312,6 @@ body {
       <span class="inspector-row-value" id="insp-lastact">—</span>
     </div>
   </div>
-
   <div class="inspector-section">
     <h3>History</h3>
     <div class="inspector-row">
@@ -545,7 +1327,6 @@ body {
       <span class="inspector-row-value" id="insp-newest">—</span>
     </div>
   </div>
-
   <div class="inspector-section">
     <h3>Backup</h3>
     <div class="inspector-row">
@@ -557,16 +1338,14 @@ body {
       <span class="inspector-row-value" id="insp-lastbackup">—</span>
     </div>
   </div>
-
   <div class="inspector-actions">
-    <button disabled title="Export not implemented in Step 1">Back Up All Now (Step 7)</button>
-    <button disabled title="Export not implemented in Step 1">Export Since Last Backup (Step 7)</button>
-    <button onclick="IV.inspector.showRawJson()">View Raw JSON</button>
-    <button class="btn-danger" onclick="IV.inspector.requestClearHistory()">Clear History</button>
+    <button disabled title="Export available in Step 7">Back Up All Now (Step 7)</button>
+    <button disabled title="Export available in Step 7">Export Since Last Backup (Step 7)</button>
+    <button onclick="Inspector.showRawJson()">View Raw JSON</button>
+    <button class="btn-danger" onclick="Inspector.requestClearHistory()">Clear History</button>
   </div>
-
   <div class="inspector-back">
-    <button class="btn-sec" onclick="IV.showScreen('welcome')">Back to Welcome</button>
+    <button class="btn-sec" onclick="UI.showScreen('welcome')">← Back</button>
   </div>
 </div>
 
@@ -574,11 +1353,11 @@ body {
      SCREEN: PWA Block
      ═══════════════════════════════════════════════════════════════ -->
 <div class="screen screen-center" id="screen-pwa">
-  <div class="logo" style="font-size: 48px;">BLOCKED</div>
-  <div class="hint" style="margin-top: 30px;">
-    Iron Voice cannot run when launched from the Home Screen as a standalone app.<br><br>
-    iOS disables the voice recognition engine in that mode.<br><br>
-    Please open this URL in <strong>Safari</strong> or <strong>Edge</strong> as a regular browser tab.
+  <div class="logo" style="font-size:48px">BLOCKED</div>
+  <div style="font-size:15px;color:var(--text-2);line-height:1.7;margin-top:28px;max-width:320px">
+    Iron Voice cannot run when launched from the Home Screen as a standalone app.
+    iOS disables voice recognition in that mode.<br><br>
+    Please open this URL in <strong style="color:var(--accent)">Safari</strong> or <strong style="color:var(--accent)">Edge</strong> as a regular browser tab.
   </div>
 </div>
 
@@ -586,33 +1365,84 @@ body {
      SCREEN: HTTPS Error
      ═══════════════════════════════════════════════════════════════ -->
 <div class="screen screen-center" id="screen-https">
-  <div class="logo" style="font-size: 48px; color: var(--err);">HTTPS<br>REQUIRED</div>
-  <div class="hint" style="margin-top: 30px;">
-    Iron Voice requires a secure connection (HTTPS) to use voice recognition.<br><br>
-    This page was loaded without HTTPS. Please open the app from its GitHub Pages URL:<br><br>
-    <strong>https://mstrick96.github.io/ironvoice/</strong>
+  <div class="logo" style="font-size:48px;color:var(--err)">HTTPS<br>REQUIRED</div>
+  <div style="font-size:15px;color:var(--text-2);line-height:1.7;margin-top:28px;max-width:320px">
+    Voice recognition requires a secure connection (HTTPS).<br><br>
+    Open the app from:<br>
+    <strong style="color:var(--accent)">https://mstrick96.github.io/ironvoice/</strong>
   </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
-     CONFIRM DIALOG (for Clear History)
+     EDIT SHEET (tap-to-edit weight / reps / level / duration)
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="edit-sheet-overlay" id="edit-sheet">
+  <div class="edit-sheet-card">
+    <div class="edit-sheet-title">Adjust Values</div>
+    <!-- Strength fields -->
+    <div id="edit-strength-fields">
+      <div class="edit-field">
+        <label>Weight (lbs)</label>
+        <input type="number" id="edit-weight-input" inputmode="decimal" min="0" step="5">
+      </div>
+      <div class="edit-field">
+        <label>Reps</label>
+        <input type="number" id="edit-reps-input" inputmode="numeric" min="1" step="1">
+      </div>
+    </div>
+    <!-- Timed fields -->
+    <div id="edit-timed-fields" style="display:none">
+      <div class="edit-field">
+        <label>Level</label>
+        <input type="number" id="edit-level-input" inputmode="numeric" min="1" step="1">
+      </div>
+      <div class="edit-field">
+        <label>Duration (min)</label>
+        <input type="number" id="edit-duration-input" inputmode="numeric" min="1" step="1">
+      </div>
+    </div>
+    <div class="edit-actions">
+      <button class="edit-cancel-btn" onclick="WorkoutUI.closeEditSheet()">✕</button>
+      <button class="edit-today-btn" onclick="WorkoutUI.applyEdit('today')">Today Only</button>
+      <button class="edit-save-btn" onclick="WorkoutUI.applyEdit('next')">Save for Next Time</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     END WORKOUT OVERLAY
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="end-overlay" id="end-overlay">
+  <div class="end-card">
+    <div class="end-card-title">End Workout?</div>
+    <div class="end-card-stats" id="end-card-stats"></div>
+    <div class="end-card-actions">
+      <button class="end-keep-going" onclick="EndConfirm.cancel()">Keep Going</button>
+      <button class="end-confirm-btn" onclick="EndConfirm.confirm()">Yes, End Workout</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CONFIRM DIALOG (Clear History)
      ═══════════════════════════════════════════════════════════════ -->
 <div class="confirm-overlay" id="confirm-clear">
   <div class="confirm-box">
     <div class="confirm-title">Clear all workout history?</div>
     <div class="confirm-text">
-      This will permanently delete all completed session records. The current plan and settings will be kept. This cannot be undone.<br><br>
+      This permanently deletes all completed session records. Plan and settings are kept. Cannot be undone.<br><br>
       Type <strong>ERASE</strong> to confirm:
     </div>
-    <input type="text" class="confirm-input" id="confirm-input" autocomplete="off" autocapitalize="characters">
+    <input type="text" class="confirm-input" id="confirm-input"
+           autocomplete="off" autocapitalize="characters"
+           oninput="document.getElementById('confirm-ok-btn').disabled = this.value !== 'ERASE'">
     <div class="confirm-actions">
-      <button class="confirm-cancel" onclick="IV.inspector.cancelClear()">Cancel</button>
-      <button class="confirm-ok" id="confirm-ok-btn" disabled onclick="IV.inspector.doClear()">Clear History</button>
+      <button class="confirm-cancel" onclick="Inspector.cancelClear()">Cancel</button>
+      <button class="confirm-ok" id="confirm-ok-btn" disabled onclick="Inspector.doClear()">Clear History</button>
     </div>
   </div>
 </div>
 
-<!-- Debug state badge (shows current machine state — persists across screens) -->
 <div class="state-badge" id="state-badge">—</div>
 
 <script>
@@ -622,40 +1452,108 @@ body {
 // CONFIGURATION (user-editable constants)
 // ═══════════════════════════════════════════════════════════════
 const CONFIG = {
-  // Wake word (future use, Step 3+). Single word recommended per spec.
   WAKE_WORD: 'iron',
   WAKE_WORD_FALLBACK: 'iron up',
-
-  // Default rest duration (seconds), future use
   DEFAULT_REST_SECONDS: 90,
-
-  // Close-tab heartbeat threshold (hours). Sessions older than this
-  // on load are auto-finalized to history per spec Section 6.4.1.
   STALE_SESSION_HOURS: 6,
-
-  // Diagnostics ring buffer size
   DIAG_BUFFER_SIZE: 100,
 
-  // Default workout plan — used on first launch only
+  // VOICE ALIASES: each exercise has an aliases array used by the
+  // voice parser (Step 3+) to recognize the exercise by name in
+  // natural speech, including informal names and likely
+  // misrecognitions.
+  //
+  // HIP ADDUCTION vs HIP ABDUCTION are given maximally distinct
+  // aliases because they are acoustically nearly identical ("add"
+  // vs "ab") and adjacent in the circuit. The voice parser will
+  // use these distinct terms to disambiguate when the user says
+  // "Iron, go to adduction" or "Iron, go to outer thigh."
   DEFAULT_PLAN: [
-    { id: 'bike',  type: 'timed',    name: 'Recumbent Bike', level: 1,   duration: 10, note: 'Easy warm-up pace. Loosen hips and legs.' },
-    { id: 'e01',   type: 'strength', name: 'Chest Press',    weight: 40,  reps: 20, sets: 1, rest: 90, note: 'Full range of motion. Controlled push and slow return. Do not lock elbows.' },
-    { id: 'e02',   type: 'strength', name: 'Leg Press',      weight: 145, reps: 20, sets: 1, rest: 90, note: 'Feet shoulder-width. Push through heels. Stop short of locking knees.' },
-    { id: 'e03',   type: 'strength', name: 'Lat Pulldown',   weight: 70,  reps: 20, sets: 1, rest: 90, note: 'Pull to upper chest. Squeeze shoulder blades. Slow return.' },
-    { id: 'e04',   type: 'strength', name: 'Shoulder Press', weight: 40,  reps: 20, sets: 1, rest: 90, note: 'Press straight up. Do not arch back. Stop short of locking elbows.' },
-    { id: 'e05',   type: 'strength', name: 'Leg Curl',       weight: 60,  reps: 20, sets: 1, rest: 90, note: 'Smooth curl through full range. No jerking. Slow return.' },
-    { id: 'e06',   type: 'strength', name: 'Biceps Curl',    weight: 40,  reps: 20, sets: 1, rest: 90, note: 'Elbows at sides. Full curl up, slow descent. No swinging.' },
-    { id: 'e07',   type: 'strength', name: 'Triceps Press',  weight: 70,  reps: 20, sets: 1, rest: 90, note: 'Elbows tucked. Full extension. Slow return. Wrists neutral.' },
-    { id: 'e08',   type: 'strength', name: 'Leg Extension',  weight: 50,  reps: 20, sets: 1, rest: 90, note: 'Extend fully, do not hyperextend. Slow return. No dropping.' },
-    { id: 'e09',   type: 'strength', name: 'Seated Row',     weight: 70,  reps: 20, sets: 1, rest: 90, note: 'Pull elbows back past sides. Squeeze at end. Slow return.' },
-    { id: 'e10',   type: 'strength', name: 'Abdominal',      weight: 100, reps: 20, sets: 1, rest: 90, note: 'Controlled movement. Exhale on contraction. No momentum.' },
-    { id: 'e11',   type: 'strength', name: 'Hip Adduction',  weight: 40,  reps: 20, sets: 1, rest: 90, note: 'Slow squeeze inward. Brief hold. Controlled return. No bouncing.' },
-    { id: 'e12',   type: 'strength', name: 'Hip Abduction',  weight: 40,  reps: 20, sets: 1, rest: 90, note: 'Slow push outward. Brief hold. Controlled return. No bouncing.' }
+    {
+      id: 'bike', type: 'timed', name: 'Recumbent Bike',
+      level: 1, duration: 10,
+      note: 'Easy warm-up pace. Loosen hips and legs.',
+      aliases: ['bike', 'bicycle', 'warmup', 'warm up', 'recumbent']
+    },
+    {
+      id: 'e01', type: 'strength', name: 'Chest Press',
+      weight: 40, reps: 20, sets: 1, rest: 90,
+      note: 'Full range of motion. Controlled push and slow return. Do not lock elbows.',
+      aliases: ['chest press', 'chest', 'bench press', 'chest machine']
+    },
+    {
+      id: 'e02', type: 'strength', name: 'Leg Press',
+      weight: 145, reps: 20, sets: 1, rest: 90,
+      note: 'Feet shoulder-width. Push through heels. Stop short of locking knees.',
+      aliases: ['leg press', 'legs', 'leg machine', 'press']
+    },
+    {
+      id: 'e03', type: 'strength', name: 'Lat Pulldown',
+      weight: 70, reps: 20, sets: 1, rest: 90,
+      note: 'Pull to upper chest. Squeeze shoulder blades. Slow return.',
+      aliases: ['lat pulldown', 'lats', 'lat pull', 'pulldown', 'pull down']
+    },
+    {
+      id: 'e04', type: 'strength', name: 'Shoulder Press',
+      weight: 40, reps: 20, sets: 1, rest: 90,
+      note: 'Press straight up. Do not arch back. Stop short of locking elbows.',
+      aliases: ['shoulder press', 'shoulders', 'overhead press', 'shoulder machine']
+    },
+    {
+      id: 'e05', type: 'strength', name: 'Leg Curl',
+      weight: 60, reps: 20, sets: 1, rest: 90,
+      note: 'Smooth curl through full range. No jerking. Slow return.',
+      aliases: ['leg curl', 'hamstring', 'hamstrings', 'ham curl']
+    },
+    {
+      id: 'e06', type: 'strength', name: 'Biceps Curl',
+      weight: 40, reps: 20, sets: 1, rest: 90,
+      note: 'Elbows at sides. Full curl up, slow descent. No swinging.',
+      aliases: ['biceps curl', 'biceps', 'curls', 'arm curl', 'curl machine']
+    },
+    {
+      id: 'e07', type: 'strength', name: 'Triceps Press',
+      weight: 70, reps: 20, sets: 1, rest: 90,
+      note: 'Elbows tucked. Full extension. Slow return. Wrists neutral.',
+      aliases: ['triceps press', 'triceps', 'tris', 'pushdown', 'tricep machine']
+    },
+    {
+      id: 'e08', type: 'strength', name: 'Leg Extension',
+      weight: 50, reps: 20, sets: 1, rest: 90,
+      note: 'Extend fully, do not hyperextend. Slow return. No dropping.',
+      aliases: ['leg extension', 'quads', 'quad machine', 'extensions', 'extension']
+    },
+    {
+      id: 'e09', type: 'strength', name: 'Seated Row',
+      weight: 70, reps: 20, sets: 1, rest: 90,
+      note: 'Pull elbows back past sides. Squeeze at end. Slow return.',
+      aliases: ['seated row', 'row', 'rows', 'back row', 'rowing']
+    },
+    {
+      id: 'e10', type: 'strength', name: 'Abdominal',
+      weight: 100, reps: 20, sets: 1, rest: 90,
+      note: 'Controlled movement. Exhale on contraction. No momentum.',
+      aliases: ['abs', 'abdominal', 'core', 'ab machine', 'abdominals']
+    },
+    {
+      id: 'e11', type: 'strength', name: 'Hip Adduction',
+      weight: 40, reps: 20, sets: 1, rest: 90,
+      note: 'Slow squeeze inward. Brief hold. Controlled return. No bouncing.',
+      // DISTINCT from abduction: uses "add", "adductor", "inner thigh"
+      aliases: ['hip adduction', 'adduction', 'adductor', 'inner thigh', 'add machine']
+    },
+    {
+      id: 'e12', type: 'strength', name: 'Hip Abduction',
+      weight: 40, reps: 20, sets: 1, rest: 90,
+      note: 'Slow push outward. Brief hold. Controlled return. No bouncing.',
+      // DISTINCT from adduction: uses "ab", "abductor", "outer thigh"
+      aliases: ['hip abduction', 'abduction', 'abductor', 'outer thigh', 'ab machine']
+    }
   ]
 };
 
 // ═══════════════════════════════════════════════════════════════
-// CONSTANTS (internal, do not edit)
+// CONSTANTS (internal)
 // ═══════════════════════════════════════════════════════════════
 const STORAGE_KEYS = {
   plan:     'iv.plan.v2',
@@ -664,22 +1562,14 @@ const STORAGE_KEYS = {
   settings: 'iv.settings.v2',
   diag:     'iv.diag.v2'
 };
-
 const SCHEMA_VERSION = 2;
-
-// State machine states — must match spec Section 2.1
 const STATES = Object.freeze({
-  IDLE:        'IDLE',
-  LISTENING:   'LISTENING',
-  PROCESSING:  'PROCESSING',
-  SPEAKING:    'SPEAKING',
-  ERROR:       'ERROR'
+  IDLE: 'IDLE', LISTENING: 'LISTENING', PROCESSING: 'PROCESSING',
+  SPEAKING: 'SPEAKING', ERROR: 'ERROR'
 });
-
-// Allowed transitions — enforced by transition() function.
-// REGRESSION HAZARD: changing these without updating the state machine logic
-// in Step 3+ will silently break the voice loop. Keep this table and the
-// transition() body in sync.
+// REGRESSION HAZARD: these transitions are enforced by transition().
+// Changing them without updating the voice loop in Step 3+ will
+// silently break command handling.
 const ALLOWED_TRANSITIONS = Object.freeze({
   IDLE:       ['LISTENING', 'ERROR'],
   LISTENING:  ['PROCESSING', 'SPEAKING', 'IDLE', 'ERROR'],
@@ -689,79 +1579,43 @@ const ALLOWED_TRANSITIONS = Object.freeze({
 });
 
 // ═══════════════════════════════════════════════════════════════
-// DIAGNOSTICS (ring buffer + optional persistence)
+// DIAGNOSTICS
 // ═══════════════════════════════════════════════════════════════
-// All state transitions, storage errors, and lifecycle events go here.
-// Inspectable from dev console as window.__iv.diag.
 const Diag = (() => {
   let buffer = [];
-
   function add(category, message, extra) {
-    const entry = {
-      t: new Date().toISOString(),
-      cat: category,
-      msg: message
-    };
+    const entry = { t: new Date().toISOString(), cat: category, msg: message };
     if (extra !== undefined) entry.extra = extra;
     buffer.push(entry);
-    if (buffer.length > CONFIG.DIAG_BUFFER_SIZE) {
-      buffer = buffer.slice(-CONFIG.DIAG_BUFFER_SIZE);
-    }
-    // Also mirror to console for easier debugging
+    if (buffer.length > CONFIG.DIAG_BUFFER_SIZE) buffer = buffer.slice(-CONFIG.DIAG_BUFFER_SIZE);
     console.log(`[IV:${category}]`, message, extra !== undefined ? extra : '');
   }
-
   function all() { return buffer.slice(); }
-
   function clear() { buffer = []; }
-
   function load() {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.diag);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) buffer = parsed.slice(-CONFIG.DIAG_BUFFER_SIZE);
-      }
-    } catch (e) { /* ignore; empty buffer is fine */ }
+      if (raw) { const p = JSON.parse(raw); if (Array.isArray(p)) buffer = p.slice(-CONFIG.DIAG_BUFFER_SIZE); }
+    } catch(e) {}
   }
-
   function save() {
-    try {
-      localStorage.setItem(STORAGE_KEYS.diag, JSON.stringify(buffer));
-    } catch (e) { /* ignore quota errors on diag specifically */ }
+    try { localStorage.setItem(STORAGE_KEYS.diag, JSON.stringify(buffer)); } catch(e) {}
   }
-
   return { add, all, clear, load, save };
 })();
 
 // ═══════════════════════════════════════════════════════════════
 // STORAGE LAYER
 // ═══════════════════════════════════════════════════════════════
-// Each key stores a JSON object with {schemaVersion, ...payload}.
-// Corrupted blobs are stashed to iv.corrupt.v2.<timestamp> before reset.
-// REGRESSION HAZARD: any new storage field must be added to the default
-// factory for its key AND to validateShape(). Missing validation = silent
+// REGRESSION HAZARD: every new storage field must be added to the
+// factory default AND validateShape(). Missing validation = silent
 // corruption retained.
 const Storage = (() => {
-
   function defaultPlan() {
-    return {
-      schemaVersion: SCHEMA_VERSION,
-      exercises: JSON.parse(JSON.stringify(CONFIG.DEFAULT_PLAN))
-    };
+    return { schemaVersion: SCHEMA_VERSION, exercises: JSON.parse(JSON.stringify(CONFIG.DEFAULT_PLAN)) };
   }
-
-  function defaultSession() {
-    return null; // no live session by default
-  }
-
-  function defaultHistory() {
-    return {
-      schemaVersion: SCHEMA_VERSION,
-      sessions: []
-    };
-  }
-
+  function defaultSession() { return null; }
+  function defaultHistory() { return { schemaVersion: SCHEMA_VERSION, sessions: [] }; }
   function defaultSettings() {
     return {
       schemaVersion: SCHEMA_VERSION,
@@ -770,81 +1624,64 @@ const Storage = (() => {
       lastBackupConfirmedDate: null
     };
   }
-
-  // Validate shape. Returns true if object is a valid payload for the
-  // given key. Only checks structure, not values.
   function validateShape(key, obj) {
-    if (obj === null && key === 'session') return true;  // null session is valid
+    if (obj === null && key === 'session') return true;
     if (!obj || typeof obj !== 'object') return false;
     if (typeof obj.schemaVersion !== 'number') return false;
-
     switch (key) {
-      case 'plan':
-        return Array.isArray(obj.exercises);
-      case 'session':
-        return typeof obj.id === 'string' &&
-               typeof obj.startTime === 'string' &&
-               typeof obj.currentIndex === 'number' &&
-               typeof obj.lastActivityTimestamp === 'number' &&
-               Array.isArray(obj.logEntries);
-      case 'history':
-        return Array.isArray(obj.sessions);
-      case 'settings':
-        return true; // tolerant — may have any of several fields
-      default:
-        return false;
+      case 'plan':    return Array.isArray(obj.exercises);
+      case 'session': return typeof obj.id === 'string' &&
+                             typeof obj.startTime === 'string' &&
+                             typeof obj.currentIndex === 'number' &&
+                             typeof obj.lastActivityTimestamp === 'number' &&
+                             Array.isArray(obj.logEntries);
+      case 'history': return Array.isArray(obj.sessions);
+      case 'settings': return true;
+      default: return false;
     }
   }
-
-  // Migration ladder. Currently only v2 exists, so this is a no-op
-  // passthrough. Future: migrate(2, 3, obj) would upgrade v2 → v3.
-  // REGRESSION HAZARD: every new SCHEMA_VERSION requires a new case here.
   function migrate(key, obj) {
     if (!obj || typeof obj.schemaVersion !== 'number') return obj;
     while (obj.schemaVersion < SCHEMA_VERSION) {
       switch (obj.schemaVersion) {
         // case 1: obj = upgradeV1toV2(key, obj); break;
         default:
-          Diag.add('storage', `Unknown schema version ${obj.schemaVersion} for ${key} — cannot migrate`);
+          Diag.add('storage', `Unknown schema ${obj.schemaVersion} for ${key} — cannot migrate`);
           return null;
       }
     }
     return obj;
   }
-
   function stashCorrupt(key, rawValue) {
     const stashKey = `iv.corrupt.v2.${key}.${Date.now()}`;
-    try {
-      localStorage.setItem(stashKey, rawValue);
-      Diag.add('storage', `Corrupted ${key} stashed to ${stashKey}`);
-    } catch (e) {
-      Diag.add('storage', `Failed to stash corrupt ${key} (quota?)`, e.message);
+    try { localStorage.setItem(stashKey, rawValue); Diag.add('storage', `Corrupt ${key} stashed to ${stashKey}`); }
+    catch(e) { Diag.add('storage', `Failed to stash ${key}`, e.message); }
+  }
+  function factoryDefault(keyName) {
+    switch (keyName) {
+      case 'plan':    return defaultPlan();
+      case 'session': return defaultSession();
+      case 'history': return defaultHistory();
+      case 'settings': return defaultSettings();
+      default: throw new Error(`Unknown key: ${keyName}`);
     }
   }
-
-  // Load a key. Returns the loaded object on success, or the default
-  // on first load or on corruption. On corruption, raises a banner.
   function loadKey(keyName) {
     const storageKey = STORAGE_KEYS[keyName];
     const raw = localStorage.getItem(storageKey);
-
     if (raw === null) {
-      // First load — return default and persist
       const def = factoryDefault(keyName);
-      if (keyName === 'session' && def === null) {
-        // Don't persist "null" for session on first load; let it remain absent
-        Diag.add('storage', `No prior ${keyName} (first load)`);
-      } else {
+      if (!(keyName === 'session' && def === null)) {
         saveKey(keyName, def);
         Diag.add('storage', `Initialized ${keyName} with defaults`);
+      } else {
+        Diag.add('storage', `No prior ${keyName} (first load)`);
       }
       return def;
     }
-
     let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch (e) {
+    try { parsed = JSON.parse(raw); }
+    catch(e) {
       Diag.add('storage', `JSON parse failed for ${keyName}`, e.message);
       stashCorrupt(keyName, raw);
       UI.raiseCorruptionBanner(keyName);
@@ -852,13 +1689,7 @@ const Storage = (() => {
       saveKey(keyName, def);
       return def;
     }
-
-    // For session only: null is valid (means "no active session")
-    if (keyName === 'session' && parsed === null) {
-      return null;
-    }
-
-    // Attempt migration if schema is older
+    if (keyName === 'session' && parsed === null) return null;
     if (parsed && typeof parsed.schemaVersion === 'number' && parsed.schemaVersion < SCHEMA_VERSION) {
       parsed = migrate(keyName, parsed);
       if (parsed === null) {
@@ -869,7 +1700,6 @@ const Storage = (() => {
         return def;
       }
     }
-
     if (!validateShape(keyName, parsed)) {
       Diag.add('storage', `Shape validation failed for ${keyName}`, parsed);
       stashCorrupt(keyName, raw);
@@ -878,27 +1708,14 @@ const Storage = (() => {
       saveKey(keyName, def);
       return def;
     }
-
     return parsed;
   }
-
-  function factoryDefault(keyName) {
-    switch (keyName) {
-      case 'plan':     return defaultPlan();
-      case 'session':  return defaultSession();
-      case 'history':  return defaultHistory();
-      case 'settings': return defaultSettings();
-      default: throw new Error(`Unknown key: ${keyName}`);
-    }
-  }
-
   function saveKey(keyName, value) {
     const storageKey = STORAGE_KEYS[keyName];
     try {
-      const serialized = value === null ? 'null' : JSON.stringify(value);
-      localStorage.setItem(storageKey, serialized);
+      localStorage.setItem(storageKey, value === null ? 'null' : JSON.stringify(value));
       return true;
-    } catch (e) {
+    } catch(e) {
       if (e.name === 'QuotaExceededError' || /quota/i.test(e.message)) {
         Diag.add('storage', `Quota exceeded saving ${keyName}`, e.message);
         UI.raiseQuotaBanner();
@@ -908,15 +1725,12 @@ const Storage = (() => {
       return false;
     }
   }
-
-  // Return total bytes used across all IV storage keys.
   function totalSizeBytes() {
     let total = 0;
     for (const key of Object.values(STORAGE_KEYS)) {
       const v = localStorage.getItem(key);
       if (v) total += v.length + key.length;
     }
-    // Also count any corruption stashes
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (k && k.startsWith('iv.corrupt.v2.')) {
@@ -926,82 +1740,50 @@ const Storage = (() => {
     }
     return total;
   }
-
-  return {
-    loadKey,
-    saveKey,
-    factoryDefault,
-    totalSizeBytes,
-    defaultPlan,
-    defaultSession,
-    defaultHistory,
-    defaultSettings
-  };
+  return { loadKey, saveKey, factoryDefault, totalSizeBytes, defaultPlan, defaultHistory, defaultSettings };
 })();
 
 // ═══════════════════════════════════════════════════════════════
 // STATE MACHINE
 // ═══════════════════════════════════════════════════════════════
 // REGRESSION HAZARD: every state change must go through transition().
-// Direct assignment of State.current is forbidden. The enforced
-// transition table is the only mechanism preventing the v1.3.1-class
-// bugs where listening and speaking flags desynchronized.
+// Direct assignment of State.current is forbidden.
 const State = (() => {
   let current = STATES.IDLE;
   const listeners = [];
-
   function transition(to, reason) {
     const from = current;
-    if (from === to) {
-      Diag.add('state', `No-op transition: already ${to}`);
-      return true;
-    }
+    if (from === to) { Diag.add('state', `No-op: already ${to}`); return true; }
     const allowed = ALLOWED_TRANSITIONS[from] || [];
     if (!allowed.includes(to)) {
-      Diag.add('state', `ILLEGAL transition ${from} → ${to} blocked`, { reason });
-      console.error(`Illegal state transition: ${from} → ${to}`);
+      Diag.add('state', `ILLEGAL ${from} → ${to} blocked`, { reason });
       return false;
     }
     current = to;
     Diag.add('state', `${from} → ${to}`, { reason });
     UI.reflectState(to);
-    listeners.forEach(fn => {
-      try { fn(to, from, reason); }
-      catch (e) { Diag.add('state', 'Listener threw', e.message); }
-    });
+    listeners.forEach(fn => { try { fn(to, from, reason); } catch(e) {} });
     return true;
   }
-
   function get() { return current; }
-
   function onChange(fn) { listeners.push(fn); }
-
-  // Force-reset — only used in edge cases like corruption recovery.
-  // Bypasses the allowed-transitions check. Use sparingly.
   function forceReset(to, reason) {
     const from = current;
     current = to;
-    Diag.add('state', `FORCE reset ${from} → ${to}`, { reason });
+    Diag.add('state', `FORCE ${from} → ${to}`, { reason });
     UI.reflectState(to);
   }
-
   return { transition, get, onChange, forceReset };
 })();
 
 // ═══════════════════════════════════════════════════════════════
-// UI (screens, banners, state badge)
+// UI (screens and banners)
 // ═══════════════════════════════════════════════════════════════
-// Step 1 scope: just enough UI to confirm architecture works.
-// Step 2 will replace placeholder screens with real workout UI.
 const UI = (() => {
-  const SCREENS = ['welcome', 'storage', 'pwa', 'https', 'diaglog'];
+  const SCREENS = ['welcome', 'resume', 'workout', 'summary', 'plan-editor', 'storage', 'pwa', 'https'];
   let activeScreen = null;
-
   function showScreen(name) {
-    if (!SCREENS.includes(name)) {
-      Diag.add('ui', `Unknown screen: ${name}`);
-      return;
-    }
+    if (!SCREENS.includes(name)) { Diag.add('ui', `Unknown screen: ${name}`); return; }
     SCREENS.forEach(s => {
       const el = document.getElementById('screen-' + s);
       if (el) el.classList.toggle('active', s === name);
@@ -1009,63 +1791,35 @@ const UI = (() => {
     activeScreen = name;
     Diag.add('ui', `Screen → ${name}`);
     if (name === 'storage') Inspector.refresh();
-    if (name === 'diaglog') renderDiaglog();
+    if (name === 'welcome') refreshWelcome();
   }
-
-  function renderDiaglog() {
-    const entries = Diag.all().slice().reverse(); // newest first
-    const container = document.getElementById('diaglog-entries');
-    if (!container) return;
-    if (entries.length === 0) {
-      container.innerHTML = '<div style="text-align:center;color:var(--text-3);padding:20px;">No entries</div>';
-      return;
+  function refreshWelcome() {
+    const plan = Storage.loadKey('plan');
+    const count = plan ? plan.exercises.length : 0;
+    const history = Storage.loadKey('history');
+    const sessionCount = history ? history.sessions.length : 0;
+    const info = document.getElementById('welcome-plan-info');
+    if (info) {
+      info.innerHTML = `<strong>${count}</strong> exercises planned<br>${sessionCount > 0 ? `<strong>${sessionCount}</strong> sessions logged` : 'No sessions logged yet'}`;
     }
-    const html = entries.map(e => {
-      const time = new Date(e.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const cat = (e.cat || 'misc').toLowerCase();
-      const msg = String(e.msg || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      let extra = '';
-      if (e.extra !== undefined) {
-        const ex = typeof e.extra === 'object' ? JSON.stringify(e.extra) : String(e.extra);
-        extra = `<div class="diaglog-extra">${ex.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`;
-      }
-      return `<div class="diaglog-entry cat-${cat}">
-        <span class="diaglog-time">${time}</span>
-        <span class="diaglog-cat">${cat}</span>
-        <span class="diaglog-msg">${msg}</span>
-        ${extra}
-      </div>`;
-    }).join('');
-    container.innerHTML = html;
   }
-
   function reflectState(stateName) {
     const badge = document.getElementById('state-badge');
     if (badge) badge.textContent = stateName;
   }
-
-  // Banner management — banners stack and each has a unique id so
-  // they can be dismissed individually.
   function raiseBanner(id, type, message, actionLabel, actionFn) {
     const area = document.getElementById('banner-area');
-    // Don't duplicate a banner with the same id
     if (document.getElementById('banner-' + id)) return;
-
     const banner = document.createElement('div');
     banner.className = 'banner ' + type;
     banner.id = 'banner-' + id;
-
     const text = document.createElement('span');
     text.textContent = message;
     banner.appendChild(text);
-
     if (actionLabel) {
       const btn = document.createElement('button');
       btn.textContent = actionLabel;
-      btn.onclick = () => {
-        if (actionFn) actionFn();
-        banner.remove();
-      };
+      btn.onclick = () => { if (actionFn) actionFn(); banner.remove(); };
       banner.appendChild(btn);
     } else {
       const dismiss = document.createElement('button');
@@ -1073,88 +1827,879 @@ const UI = (() => {
       dismiss.onclick = () => banner.remove();
       banner.appendChild(dismiss);
     }
-
     area.appendChild(banner);
   }
-
   function raiseCorruptionBanner(keyName) {
-    raiseBanner(
-      'corrupt-' + keyName,
-      'warn',
-      `Stored ${keyName} data was corrupted and has been reset to defaults. The old data is preserved in diagnostics.`,
-      'Dismiss',
-      null
-    );
+    raiseBanner('corrupt-' + keyName, 'warn',
+      `Stored ${keyName} data was corrupted and reset to defaults. Old data preserved in diagnostics.`,
+      'Dismiss', null);
   }
-
   function raiseQuotaBanner() {
-    raiseBanner(
-      'quota',
-      'err',
+    raiseBanner('quota', 'err',
       'Device storage is full. Export your history and clear old sessions to free space.',
-      'Open Storage',
-      () => showScreen('storage')
-    );
+      'Open Storage', () => showScreen('storage'));
   }
-
   function raiseOfflineBanner() {
-    raiseBanner(
-      'offline',
-      'warn',
-      'Offline — voice commands unavailable. Tap controls still work.',
-      null,
-      null
-    );
+    raiseBanner('offline', 'warn', 'Offline — voice commands unavailable. Tap controls still work.', null, null);
   }
-
-  function clearBanner(id) {
-    const el = document.getElementById('banner-' + id);
-    if (el) el.remove();
-  }
-
+  function clearBanner(id) { const el = document.getElementById('banner-' + id); if (el) el.remove(); }
   function getActiveScreen() { return activeScreen; }
+  return { showScreen, refreshWelcome, reflectState, raiseBanner, raiseCorruptionBanner, raiseQuotaBanner, raiseOfflineBanner, clearBanner, getActiveScreen };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// SESSION
+// ═══════════════════════════════════════════════════════════════
+// All session mutations go through Session methods.
+// REGRESSION HAZARD: every mutation must call heartbeat() to keep
+// lastActivityTimestamp fresh for the close-tab detection logic.
+const Session = (() => {
+  let _data = null;
+  let _plan = null;
+
+  function getEffectiveValue(exId, field) {
+    if (!_data) return null;
+    const overrides = (_data.todayOverrides || {})[exId] || {};
+    if (field in overrides) return overrides[field];
+    const ex = _plan ? _plan.exercises.find(e => e.id === exId) : null;
+    return ex ? ex[field] : null;
+  }
+
+  function getCurrentExercise() {
+    if (!_data || !_plan) return null;
+    const ex = _plan.exercises[_data.currentIndex];
+    if (!ex) return null;
+    // Merge today's overrides into a copy so callers see effective values
+    return Object.assign({}, ex, (_data.todayOverrides || {})[ex.id] || {});
+  }
+
+  function getSetCount(exId) {
+    if (!_data) return 0;
+    return _data.logEntries.filter(e => e.exId === exId).length;
+  }
+
+  function isExerciseDone(exId) { return getSetCount(exId) > 0; }
+
+  function heartbeat() {
+    if (_data) {
+      _data.lastActivityTimestamp = Date.now();
+      Storage.saveKey('session', _data);
+    }
+  }
+
+  function _newSessionObject() {
+    const now = new Date();
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      id: now.getTime().toString(36) + Math.random().toString(36).slice(2, 6),
+      startTime: now.toISOString(),
+      currentIndex: 0,
+      logEntries: [],
+      todayOverrides: {},
+      noteSeenIds: [],
+      pendingPlanChanges: [],
+      sessionNote: '',
+      lastActivityTimestamp: Date.now()
+    };
+  }
+
+  function start() {
+    _plan = Storage.loadKey('plan');
+    _data = _newSessionObject();
+    heartbeat();
+    Diag.add('session', 'Session started', { id: _data.id });
+    WorkoutUI.render();
+    UI.showScreen('workout');
+    State.transition(STATES.IDLE, 'session started - voice in Step 3');
+  }
+
+  function resume() {
+    _plan = Storage.loadKey('plan');
+    const saved = Storage.loadKey('session');
+    if (!saved) { start(); return; }
+    _data = saved;
+    // Patch missing fields from older sessions (forward compat)
+    if (!_data.todayOverrides) _data.todayOverrides = {};
+    if (!_data.noteSeenIds) _data.noteSeenIds = [];
+    heartbeat();
+    Diag.add('session', 'Session resumed', { id: _data.id, index: _data.currentIndex });
+    WorkoutUI.render();
+    UI.showScreen('workout');
+  }
+
+  function startFresh() {
+    Storage.saveKey('session', null);
+    Diag.add('session', 'Starting fresh — discarded prior session');
+    start();
+  }
+
+  function navigate(delta) {
+    if (!_data || !_plan) return;
+    const newIdx = _data.currentIndex + delta;
+    if (newIdx < 0 || newIdx >= _plan.exercises.length) return;
+    _data.currentIndex = newIdx;
+    heartbeat();
+    WorkoutUI.render();
+    Diag.add('session', `Navigate to index ${newIdx}`);
+  }
+
+  function goTo(index) {
+    if (!_data || !_plan) return;
+    if (index < 0 || index >= _plan.exercises.length) return;
+    _data.currentIndex = index;
+    heartbeat();
+    WorkoutUI.render();
+  }
+
+  function logSet() {
+    if (!_data || !_plan) return;
+    const ex = getCurrentExercise();
+    if (!ex) return;
+    const setNum = getSetCount(ex.id) + 1;
+    const entry = {
+      id: Date.now().toString(36),
+      exId: ex.id,
+      name: ex.name,
+      type: ex.type,
+      setNum,
+      timestamp: new Date().toISOString()
+    };
+    if (ex.type === 'strength') {
+      entry.weight = getEffectiveValue(ex.id, 'weight');
+      entry.reps   = getEffectiveValue(ex.id, 'reps');
+    } else {
+      entry.level    = getEffectiveValue(ex.id, 'level');
+      entry.duration = getEffectiveValue(ex.id, 'duration');
+    }
+    _data.logEntries.push(entry);
+    heartbeat();
+    WorkoutUI.render();
+    WorkoutUI.showLoggedConfirm(entry);
+    Diag.add('session', `Logged set ${setNum} for ${ex.name}`);
+  }
+
+  function undoLastSet() {
+    if (!_data) return;
+    const ex = getCurrentExercise();
+    if (!ex) return;
+    const lastIdx = _data.logEntries.map(e => e.exId).lastIndexOf(ex.id);
+    if (lastIdx !== -1) {
+      _data.logEntries.splice(lastIdx, 1);
+      heartbeat();
+      WorkoutUI.render();
+      Diag.add('session', `Undo last set for ${ex.name}`);
+    }
+  }
+
+  function applyTodayOverride(field, value) {
+    if (!_data) return;
+    const ex = getCurrentExercise();
+    if (!ex) return;
+    if (!_data.todayOverrides[ex.id]) _data.todayOverrides[ex.id] = {};
+    _data.todayOverrides[ex.id][field] = value;
+    heartbeat();
+    WorkoutUI.render();
+    Diag.add('session', `Today override: ${ex.id}.${field} = ${value}`);
+  }
+
+  function queuePlanChange(field, value) {
+    if (!_data) return;
+    const ex = getCurrentExercise();
+    if (!ex) return;
+    // Apply as today override too so display reflects the change immediately
+    if (!_data.todayOverrides[ex.id]) _data.todayOverrides[ex.id] = {};
+    _data.todayOverrides[ex.id][field] = value;
+    _data.pendingPlanChanges.push({
+      exId: ex.id, field, value, timestamp: new Date().toISOString()
+    });
+    heartbeat();
+    WorkoutUI.render();
+    Diag.add('session', `Queued plan change: ${ex.id}.${field} = ${value}`);
+    // Clear any existing plan-change banner before raising new one
+    UI.clearBanner('plan-change');
+    UI.raiseBanner('plan-change', 'info',
+      `${ex.name}: ${field} updated for next time.`, 'Dismiss', null);
+  }
+
+  function markNoteSeen(exId) {
+    if (!_data) return;
+    if (!_data.noteSeenIds.includes(exId)) {
+      _data.noteSeenIds.push(exId);
+      // Lightweight save — just key update, no full heartbeat needed
+      Storage.saveKey('session', _data);
+    }
+  }
+
+  function end() {
+    if (!_data || !_plan) return;
+    const history = Storage.loadKey('history');
+
+    // Apply pending plan changes to the saved plan
+    if (_data.pendingPlanChanges.length > 0) {
+      _data.pendingPlanChanges.forEach(ch => {
+        const ex = _plan.exercises.find(e => e.id === ch.exId);
+        if (ex) {
+          ex[ch.field] = ch.value;
+          Diag.add('session', `Applied plan change: ${ch.exId}.${ch.field} = ${ch.value}`);
+        }
+      });
+      Storage.saveKey('plan', _plan);
+    }
+
+    const now = Date.now();
+    const startMs = new Date(_data.startTime).getTime();
+    const durationMin = Math.max(0, Math.round((now - startMs) / 60000));
+
+    const record = {
+      id: _data.id,
+      date: _data.startTime.slice(0, 10),
+      startTime: _data.startTime,
+      endTime: new Date().toISOString(),
+      duration: durationMin,
+      logEntries: _data.logEntries,
+      sessionNote: _data.sessionNote,
+      planChanges: _data.pendingPlanChanges,
+      autoFinalizedOnClose: false,
+      schemaVersion: SCHEMA_VERSION
+    };
+    history.sessions.push(record);
+    Storage.saveKey('history', history);
+    Storage.saveKey('session', null);
+    Diag.add('session', 'Session ended explicitly', { duration: durationMin });
+
+    const snapshot = {
+      logEntries: _data.logEntries.slice(),
+      pendingPlanChanges: _data.pendingPlanChanges.slice(),
+      startTime: _data.startTime,
+      duration: durationMin
+    };
+    _data = null;
+    _plan = null;
+    State.transition(STATES.IDLE, 'session ended');
+    Summary.show(snapshot);
+  }
+
+  function getData() { return _data; }
+  function getPlan() { return _plan; }
 
   return {
-    showScreen,
-    reflectState,
-    raiseBanner,
-    raiseCorruptionBanner,
-    raiseQuotaBanner,
-    raiseOfflineBanner,
-    clearBanner,
-    getActiveScreen
+    start, resume, startFresh, navigate, goTo,
+    logSet, undoLastSet, applyTodayOverride, queuePlanChange, markNoteSeen, end,
+    getCurrentExercise, getEffectiveValue, getSetCount, isExerciseDone,
+    heartbeat, getData, getPlan
   };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// WORKOUT UI
+// ═══════════════════════════════════════════════════════════════
+const WorkoutUI = (() => {
+  let _badgeTimer = null;
+
+  function render() {
+    const ex = Session.getCurrentExercise();
+    const sessionData = Session.getData();
+    const plan = Session.getPlan();
+    if (!ex || !sessionData || !plan) return;
+
+    const idx = sessionData.currentIndex;
+
+    // Header
+    document.getElementById('workout-progress').textContent =
+      `Exercise ${idx + 1} of ${plan.exercises.length}`;
+
+    // Exercise name
+    document.getElementById('ex-name').textContent = ex.name.toUpperCase();
+
+    // Values
+    if (ex.type === 'strength') {
+      document.getElementById('strength-values').style.display = 'flex';
+      document.getElementById('timed-values').style.display = 'none';
+      document.getElementById('val-weight').textContent = Session.getEffectiveValue(ex.id, 'weight');
+      document.getElementById('val-reps').textContent   = Session.getEffectiveValue(ex.id, 'reps');
+    } else {
+      document.getElementById('strength-values').style.display = 'none';
+      document.getElementById('timed-values').style.display = 'flex';
+      document.getElementById('val-level').textContent    = Session.getEffectiveValue(ex.id, 'level');
+      document.getElementById('val-duration').textContent = Session.getEffectiveValue(ex.id, 'duration');
+    }
+
+    // Set area
+    _renderSetArea(ex);
+
+    // Coaching note
+    const noteEl = document.getElementById('coaching-note');
+    if (ex.note) {
+      noteEl.textContent = ex.note;
+      noteEl.style.display = 'block';
+      Session.markNoteSeen(ex.id);
+    } else {
+      noteEl.style.display = 'none';
+    }
+
+    // Nav buttons
+    document.getElementById('btn-prev').disabled = idx === 0;
+    document.getElementById('btn-next').disabled = idx === plan.exercises.length - 1;
+
+    // Refresh active tab
+    const activeTabBtn = document.querySelector('.tab-btn.active');
+    if (activeTabBtn) {
+      const tab = activeTabBtn.dataset.tab;
+      if (tab === 'exercises') _renderExerciseList();
+      else _renderSessionLog();
+    }
+  }
+
+  function _renderSetArea(ex) {
+    const container = document.getElementById('set-area');
+    const setCount = Session.getSetCount(ex.id);
+
+    if (ex.type === 'timed') {
+      const done = setCount > 0;
+      container.innerHTML = `
+        <button class="done-btn ${done ? 'done' : ''}" onclick="WorkoutUI.handleDoneBtn()">
+          ${done ? '✓ LOGGED' : 'MARK DONE'}
+        </button>`;
+      return;
+    }
+
+    // Strength: set dots
+    const plannedSets = Session.getEffectiveValue(ex.id, 'sets') || 1;
+    const totalDots = Math.max(plannedSets, setCount);
+    let html = `<div class="set-dots-label">TAP DOT TO LOG SET</div><div class="set-dots">`;
+    for (let i = 0; i < totalDots; i++) {
+      const done = i < setCount;
+      html += `<button class="set-dot ${done ? 'done' : ''}" onclick="WorkoutUI.handleSetDot(${i})" aria-label="Set ${i+1}"></button>`;
+    }
+    html += `</div>`;
+    if (setCount > 0) {
+      html += `<button class="undo-btn" onclick="Session.undoLastSet()">↩ Undo Last Set</button>`;
+    }
+    container.innerHTML = html;
+  }
+
+  function handleSetDot(dotIndex) {
+    const ex = Session.getCurrentExercise();
+    if (!ex) return;
+    // Only log on tap of an unfilled dot
+    if (dotIndex < Session.getSetCount(ex.id)) return;
+    Session.logSet();
+  }
+
+  function handleDoneBtn() {
+    const ex = Session.getCurrentExercise();
+    if (!ex) return;
+    if (Session.getSetCount(ex.id) > 0) Session.undoLastSet();
+    else Session.logSet();
+  }
+
+  function showLoggedConfirm(entry) {
+    const badge = document.getElementById('logged-badge');
+    if (!badge) return;
+    let text;
+    if (entry.type === 'strength') {
+      text = `✓ Set ${entry.setNum}: ${entry.reps} reps @ ${entry.weight} lbs`;
+    } else {
+      text = `✓ Done: ${entry.duration} min at level ${entry.level}`;
+    }
+    badge.textContent = text;
+    badge.style.opacity = '1';
+    if (_badgeTimer) clearTimeout(_badgeTimer);
+    _badgeTimer = setTimeout(() => { badge.style.opacity = '0'; }, 3500);
+  }
+
+  function openEditSheet() {
+    const ex = Session.getCurrentExercise();
+    if (!ex) return;
+    const sheet = document.getElementById('edit-sheet');
+    if (ex.type === 'strength') {
+      document.getElementById('edit-strength-fields').style.display = 'block';
+      document.getElementById('edit-timed-fields').style.display = 'none';
+      document.getElementById('edit-weight-input').value = Session.getEffectiveValue(ex.id, 'weight');
+      document.getElementById('edit-reps-input').value   = Session.getEffectiveValue(ex.id, 'reps');
+    } else {
+      document.getElementById('edit-strength-fields').style.display = 'none';
+      document.getElementById('edit-timed-fields').style.display = 'block';
+      document.getElementById('edit-level-input').value    = Session.getEffectiveValue(ex.id, 'level');
+      document.getElementById('edit-duration-input').value = Session.getEffectiveValue(ex.id, 'duration');
+    }
+    sheet.classList.add('active');
+    // Focus first input after sheet appears
+    setTimeout(() => {
+      const first = ex.type === 'strength'
+        ? document.getElementById('edit-weight-input')
+        : document.getElementById('edit-level-input');
+      if (first) first.focus();
+    }, 80);
+  }
+
+  function closeEditSheet() {
+    document.getElementById('edit-sheet').classList.remove('active');
+  }
+
+  function applyEdit(scope) {
+    const ex = Session.getCurrentExercise();
+    if (!ex) { closeEditSheet(); return; }
+    if (ex.type === 'strength') {
+      const w = parseFloat(document.getElementById('edit-weight-input').value);
+      const r = parseInt(document.getElementById('edit-reps-input').value);
+      if (!isNaN(w) && w >= 0) {
+        if (scope === 'today') Session.applyTodayOverride('weight', w);
+        else Session.queuePlanChange('weight', w);
+      }
+      if (!isNaN(r) && r > 0) {
+        if (scope === 'today') Session.applyTodayOverride('reps', r);
+        else Session.queuePlanChange('reps', r);
+      }
+    } else {
+      const lv  = parseInt(document.getElementById('edit-level-input').value);
+      const dur = parseInt(document.getElementById('edit-duration-input').value);
+      if (!isNaN(lv) && lv > 0) {
+        if (scope === 'today') Session.applyTodayOverride('level', lv);
+        else Session.queuePlanChange('level', lv);
+      }
+      if (!isNaN(dur) && dur > 0) {
+        if (scope === 'today') Session.applyTodayOverride('duration', dur);
+        else Session.queuePlanChange('duration', dur);
+      }
+    }
+    closeEditSheet();
+  }
+
+  function _renderExerciseList() {
+    const container = document.getElementById('tab-exercises');
+    const plan = Session.getPlan();
+    const sessionData = Session.getData();
+    if (!plan || !sessionData) return;
+    const html = plan.exercises.map((ex, i) => {
+      const done    = Session.isExerciseDone(ex.id);
+      const current = i === sessionData.currentIndex;
+      let detail;
+      if (ex.type === 'strength') {
+        detail = `${Session.getEffectiveValue(ex.id, 'weight')} lbs · ${Session.getEffectiveValue(ex.id, 'reps')} reps`;
+      } else {
+        detail = `Level ${Session.getEffectiveValue(ex.id, 'level')} · ${Session.getEffectiveValue(ex.id, 'duration')} min`;
+      }
+      return `
+        <div class="ex-list-item ${current ? 'current' : ''}" onclick="Session.goTo(${i})">
+          <div class="ex-list-done-dot ${done ? 'done' : ''}"></div>
+          <div style="flex:1;min-width:0">
+            <div class="ex-list-name">${_esc(ex.name)}</div>
+            <div class="ex-list-detail">${detail}</div>
+          </div>
+          ${current ? '<div class="ex-list-arrow">▶</div>' : ''}
+        </div>`;
+    }).join('');
+    container.innerHTML = html || '<div style="padding:20px;text-align:center;color:var(--text-3)">No exercises</div>';
+  }
+
+  function _renderSessionLog() {
+    const container = document.getElementById('tab-log');
+    const sessionData = Session.getData();
+    if (!sessionData) return;
+    const entries = sessionData.logEntries;
+    if (entries.length === 0) {
+      container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-3)">Nothing logged yet</div>';
+      return;
+    }
+    const html = entries.slice().reverse().map(e => {
+      const time = new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      let detail;
+      if (e.type === 'strength') detail = `Set ${e.setNum}: ${e.reps} reps @ ${e.weight} lbs`;
+      else detail = `${e.duration} min · Level ${e.level}`;
+      return `
+        <div class="log-entry">
+          <div class="log-entry-name">${_esc(e.name)}</div>
+          <div class="log-entry-detail">${detail}</div>
+          <div class="log-entry-time">${time}</div>
+        </div>`;
+    }).join('');
+    container.innerHTML = html;
+  }
+
+  function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.tab === tabName));
+    document.getElementById('tab-exercises').classList.toggle('active', tabName === 'exercises');
+    document.getElementById('tab-log').classList.toggle('active', tabName === 'log');
+    if (tabName === 'exercises') _renderExerciseList();
+    else _renderSessionLog();
+  }
+
+  function _esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  return {
+    render, openEditSheet, closeEditSheet, applyEdit,
+    handleSetDot, handleDoneBtn, showLoggedConfirm, switchTab
+  };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// END WORKOUT CONFIRMATION
+// ═══════════════════════════════════════════════════════════════
+const EndConfirm = (() => {
+  function show() {
+    const sessionData = Session.getData();
+    const plan = Session.getPlan();
+    if (!sessionData || !plan) return;
+
+    // Gather quick stats for the confirmation card
+    const uniqueDone = new Set(sessionData.logEntries.map(e => e.exId)).size;
+    const total = plan.exercises.length;
+    const startMs = new Date(sessionData.startTime).getTime();
+    const elapsedMin = Math.max(0, Math.round((Date.now() - startMs) / 60000));
+
+    const statsEl = document.getElementById('end-card-stats');
+    statsEl.innerHTML = `${uniqueDone} of ${total} exercises logged<br>${elapsedMin} min elapsed`;
+
+    document.getElementById('end-overlay').classList.add('active');
+  }
+  function cancel() {
+    document.getElementById('end-overlay').classList.remove('active');
+  }
+  function confirm() {
+    document.getElementById('end-overlay').classList.remove('active');
+    Session.end();
+  }
+  return { show, cancel, confirm };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// SUMMARY SCREEN
+// ═══════════════════════════════════════════════════════════════
+const Summary = (() => {
+  function show(snapshot) {
+    // Date/time
+    const dt = new Date(snapshot.startTime);
+    document.getElementById('summary-date').textContent =
+      dt.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+
+    // Stats
+    document.getElementById('sum-duration').textContent = snapshot.duration;
+    const uniqueExercises = new Set(snapshot.logEntries.map(e => e.exId)).size;
+    document.getElementById('sum-logged').textContent = uniqueExercises;
+    document.getElementById('sum-sets').textContent = snapshot.logEntries.length;
+
+    // Logged exercise list (one row per unique exercise, most recent values)
+    const byEx = {};
+    snapshot.logEntries.forEach(e => {
+      if (!byEx[e.exId]) byEx[e.exId] = { name: e.name, type: e.type, entries: [] };
+      byEx[e.exId].entries.push(e);
+    });
+    const listHtml = Object.values(byEx).map(ex => {
+      const last = ex.entries[ex.entries.length - 1];
+      const setCount = ex.entries.length;
+      let val;
+      if (ex.type === 'strength') {
+        val = `${setCount} set${setCount > 1 ? 's' : ''} · ${last.reps} reps @ ${last.weight} lbs`;
+      } else {
+        val = `${last.duration} min · Level ${last.level}`;
+      }
+      return `
+        <div class="summary-log-item">
+          <span class="summary-log-name">${_esc(ex.name)}</span>
+          <span class="summary-log-val">${val}</span>
+        </div>`;
+    }).join('') || '<div style="padding:12px;text-align:center;color:var(--text-3)">Nothing logged</div>';
+    document.getElementById('summary-log-list').innerHTML = listHtml;
+
+    // Plan changes note
+    const noteEl = document.getElementById('summary-plan-note');
+    const changes = snapshot.pendingPlanChanges || [];
+    if (changes.length > 0) {
+      noteEl.textContent = `${changes.length} plan update${changes.length > 1 ? 's' : ''} saved for next session.`;
+      noteEl.style.display = 'block';
+    } else {
+      noteEl.style.display = 'none';
+    }
+
+    UI.showScreen('summary');
+  }
+
+  function done() {
+    UI.showScreen('welcome');
+  }
+
+  function _esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  return { show, done };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// PLAN EDITOR
+// ═══════════════════════════════════════════════════════════════
+// Edits a working copy of the plan. Changes are saved on "Done"
+// and discarded on "Cancel". Voice aliases are editable here.
+const PlanEditor = (() => {
+  let _workingPlan = null;
+  let _openExId    = null;
+
+  function open() {
+    const saved = Storage.loadKey('plan');
+    // Deep copy so edits don't touch live plan until Save
+    _workingPlan = JSON.parse(JSON.stringify(saved));
+    _openExId = null;
+    _render();
+    UI.showScreen('plan-editor');
+  }
+
+  function close() {
+    // Collect form data for any open exercise, then save
+    if (_openExId) _collectForm(_openExId);
+    Storage.saveKey('plan', _workingPlan);
+    Diag.add('plan', 'Plan saved via editor');
+    UI.raiseBanner('plan-saved', 'info', 'Plan saved.', 'Dismiss', null);
+    UI.showScreen('welcome');
+  }
+
+  function cancel() {
+    _workingPlan = null;
+    _openExId = null;
+    UI.showScreen('welcome');
+  }
+
+  function _render() {
+    const list = document.getElementById('plan-editor-list');
+    if (!list || !_workingPlan) return;
+    const exercises = _workingPlan.exercises;
+    const html = exercises.map((ex, i) => {
+      const summary = ex.type === 'strength'
+        ? `${ex.weight} lbs · ${ex.reps} reps · ${ex.sets} set${ex.sets > 1 ? 's' : ''}`
+        : `Level ${ex.level} · ${ex.duration} min`;
+      const isOpen = ex.id === _openExId;
+      return `
+        <div class="plan-ex-row" id="plan-row-${_eid(ex.id)}">
+          <div class="plan-ex-header">
+            <div class="plan-reorder-col">
+              <button class="plan-reorder-btn" onclick="PlanEditor.moveUp('${_eid(ex.id)}')" title="Move up"
+                ${i === 0 ? 'disabled style="opacity:0.2"' : ''}>▲</button>
+              <button class="plan-reorder-btn" onclick="PlanEditor.moveDown('${_eid(ex.id)}')" title="Move down"
+                ${i === exercises.length - 1 ? 'disabled style="opacity:0.2"' : ''}>▼</button>
+            </div>
+            <div class="plan-ex-info">
+              <div class="plan-ex-name">${_esc(ex.name)}</div>
+              <div class="plan-ex-summary">${summary}</div>
+            </div>
+            <button class="plan-ex-toggle-btn" onclick="PlanEditor.toggle('${_eid(ex.id)}')">${isOpen ? 'Close' : 'Edit'}</button>
+          </div>
+          <div class="plan-ex-form ${isOpen ? 'open' : ''}" id="plan-form-${_eid(ex.id)}">
+            ${_buildForm(ex)}
+          </div>
+        </div>`;
+    }).join('');
+    list.innerHTML = html;
+  }
+
+  function _buildForm(ex) {
+    const isStrength = ex.type === 'strength';
+    const aliases = Array.isArray(ex.aliases) ? ex.aliases.join(', ') : '';
+    return `
+      <div class="plan-field">
+        <label>Name</label>
+        <input type="text" id="pf-name-${_eid(ex.id)}" value="${_esc(ex.name)}" autocapitalize="words">
+      </div>
+      <div class="plan-field">
+        <label>Type</label>
+        <select id="pf-type-${_eid(ex.id)}" onchange="PlanEditor.onTypeChange('${_eid(ex.id)}')">
+          <option value="strength" ${isStrength ? 'selected' : ''}>Strength</option>
+          <option value="timed" ${!isStrength ? 'selected' : ''}>Timed (bike)</option>
+        </select>
+      </div>
+      <div id="pf-strength-fields-${_eid(ex.id)}" ${isStrength ? '' : 'style="display:none"'}>
+        <div class="plan-fields-row">
+          <div class="plan-field">
+            <label>Weight (lbs)</label>
+            <input type="number" id="pf-weight-${_eid(ex.id)}" value="${ex.weight || 0}" min="0" step="5" inputmode="decimal">
+          </div>
+          <div class="plan-field">
+            <label>Reps</label>
+            <input type="number" id="pf-reps-${_eid(ex.id)}" value="${ex.reps || 0}" min="1" step="1" inputmode="numeric">
+          </div>
+        </div>
+        <div class="plan-fields-row">
+          <div class="plan-field">
+            <label>Sets</label>
+            <input type="number" id="pf-sets-${_eid(ex.id)}" value="${ex.sets || 1}" min="1" step="1" inputmode="numeric">
+          </div>
+          <div class="plan-field">
+            <label>Rest (sec)</label>
+            <input type="number" id="pf-rest-${_eid(ex.id)}" value="${ex.rest || 90}" min="0" step="15" inputmode="numeric">
+          </div>
+        </div>
+      </div>
+      <div id="pf-timed-fields-${_eid(ex.id)}" ${!isStrength ? '' : 'style="display:none"'}>
+        <div class="plan-fields-row">
+          <div class="plan-field">
+            <label>Level</label>
+            <input type="number" id="pf-level-${_eid(ex.id)}" value="${ex.level || 1}" min="1" step="1" inputmode="numeric">
+          </div>
+          <div class="plan-field">
+            <label>Duration (min)</label>
+            <input type="number" id="pf-duration-${_eid(ex.id)}" value="${ex.duration || 10}" min="1" step="1" inputmode="numeric">
+          </div>
+        </div>
+      </div>
+      <div class="plan-field">
+        <label>Coaching Note</label>
+        <textarea id="pf-note-${_eid(ex.id)}">${_esc(ex.note || '')}</textarea>
+      </div>
+      <div class="plan-field">
+        <label>Voice Aliases <span class="field-hint">Comma-separated names the voice parser will match (Step 3+).<br>Use distinct terms for similar-sounding exercises.</span></label>
+        <input type="text" id="pf-aliases-${_eid(ex.id)}" value="${_esc(aliases)}" placeholder="e.g. chest, bench press, chest machine" autocapitalize="none">
+      </div>
+      <div class="plan-ex-form-actions">
+        <button class="plan-save-btn" onclick="PlanEditor.saveExercise('${_eid(ex.id)}')">Save Exercise</button>
+        <button class="plan-delete-btn" onclick="PlanEditor.deleteExercise('${_eid(ex.id)}')">Delete</button>
+      </div>`;
+  }
+
+  function _collectForm(rawId) {
+    const ex = _workingPlan.exercises.find(e => _eid(e.id) === rawId);
+    if (!ex) return;
+    const g = id => { const el = document.getElementById(id); return el ? el.value : null; };
+    const gn = id => { const v = parseFloat(g(id)); return isNaN(v) ? null : v; };
+    const name = (g(`pf-name-${rawId}`) || '').trim();
+    if (name) ex.name = name;
+    const type = g(`pf-type-${rawId}`);
+    if (type) ex.type = type;
+    if (ex.type === 'strength') {
+      const w = gn(`pf-weight-${rawId}`); if (w !== null) ex.weight = w;
+      const r = parseInt(g(`pf-reps-${rawId}`)); if (!isNaN(r) && r > 0) ex.reps = r;
+      const s = parseInt(g(`pf-sets-${rawId}`)); if (!isNaN(s) && s > 0) ex.sets = s;
+      const rest = parseInt(g(`pf-rest-${rawId}`)); if (!isNaN(rest) && rest >= 0) ex.rest = rest;
+    } else {
+      const lv = parseInt(g(`pf-level-${rawId}`)); if (!isNaN(lv) && lv > 0) ex.level = lv;
+      const dur = parseInt(g(`pf-duration-${rawId}`)); if (!isNaN(dur) && dur > 0) ex.duration = dur;
+    }
+    ex.note = (g(`pf-note-${rawId}`) || '').trim();
+    const aliasRaw = g(`pf-aliases-${rawId}`) || '';
+    ex.aliases = aliasRaw.split(',').map(a => a.trim()).filter(Boolean);
+  }
+
+  function saveExercise(rawId) {
+    _collectForm(rawId);
+    _openExId = null;
+    _render();
+    Diag.add('plan', `Exercise ${rawId} updated in editor`);
+  }
+
+  function toggle(rawId) {
+    if (_openExId === rawId) {
+      // Close without saving — user tapped Close
+      _openExId = null;
+    } else {
+      // Save any currently open form, then open this one
+      if (_openExId) _collectForm(_openExId);
+      _openExId = rawId;
+    }
+    _render();
+    // Scroll the opened row into view
+    if (_openExId) {
+      setTimeout(() => {
+        const row = document.getElementById(`plan-row-${_openExId}`);
+        if (row) row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 80);
+    }
+  }
+
+  function onTypeChange(rawId) {
+    const sel = document.getElementById(`pf-type-${rawId}`);
+    if (!sel) return;
+    const isStrength = sel.value === 'strength';
+    const strFields = document.getElementById(`pf-strength-fields-${rawId}`);
+    const timedFields = document.getElementById(`pf-timed-fields-${rawId}`);
+    if (strFields) strFields.style.display = isStrength ? '' : 'none';
+    if (timedFields) timedFields.style.display = isStrength ? 'none' : '';
+  }
+
+  function deleteExercise(rawId) {
+    if (_workingPlan.exercises.length <= 1) {
+      alert('Cannot delete the last exercise.');
+      return;
+    }
+    if (!confirm('Delete this exercise from the plan?')) return;
+    _workingPlan.exercises = _workingPlan.exercises.filter(e => _eid(e.id) !== rawId);
+    if (_openExId === rawId) _openExId = null;
+    _render();
+    Diag.add('plan', `Exercise ${rawId} deleted`);
+  }
+
+  function moveUp(rawId) {
+    if (_openExId) _collectForm(_openExId);
+    const idx = _workingPlan.exercises.findIndex(e => _eid(e.id) === rawId);
+    if (idx <= 0) return;
+    const arr = _workingPlan.exercises;
+    [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+    _render();
+  }
+
+  function moveDown(rawId) {
+    if (_openExId) _collectForm(_openExId);
+    const idx = _workingPlan.exercises.findIndex(e => _eid(e.id) === rawId);
+    if (idx < 0 || idx >= _workingPlan.exercises.length - 1) return;
+    const arr = _workingPlan.exercises;
+    [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+    _render();
+  }
+
+  function addExercise() {
+    if (_openExId) _collectForm(_openExId);
+    const newId = 'n' + Date.now().toString(36);
+    const newEx = {
+      id: newId, type: 'strength', name: 'New Exercise',
+      weight: 40, reps: 20, sets: 1, rest: 90,
+      note: '', aliases: []
+    };
+    _workingPlan.exercises.push(newEx);
+    _openExId = _eid(newId);
+    _render();
+    // Scroll to bottom
+    setTimeout(() => {
+      const list = document.getElementById('plan-editor-list');
+      if (list) list.scrollTop = list.scrollHeight;
+    }, 80);
+  }
+
+  // Make exercise ID safe for use in HTML IDs
+  function _eid(id) { return String(id).replace(/[^a-z0-9]/gi, '_'); }
+  function _esc(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  return { open, close, cancel, toggle, saveExercise, deleteExercise, moveUp, moveDown, addExercise, onTypeChange };
 })();
 
 // ═══════════════════════════════════════════════════════════════
 // STORAGE INSPECTOR
 // ═══════════════════════════════════════════════════════════════
 const Inspector = (() => {
-
   function formatBytes(n) {
     if (n < 1024) return n + ' B';
-    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
-    return (n / (1024 * 1024)).toFixed(2) + ' MB';
+    if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1048576).toFixed(2) + ' MB';
   }
-
-  function formatDate(isoOrTs) {
-    if (!isoOrTs) return 'Never';
-    const d = typeof isoOrTs === 'number' ? new Date(isoOrTs) : new Date(isoOrTs);
+  function formatDate(v) {
+    if (!v) return 'Never';
+    const d = typeof v === 'number' ? new Date(v) : new Date(v);
     if (isNaN(d.getTime())) return '—';
     return d.toLocaleString();
   }
-
   function refresh() {
     const plan     = Storage.loadKey('plan');
     const session  = Storage.loadKey('session');
     const history  = Storage.loadKey('history');
     const settings = Storage.loadKey('settings');
-
-    document.getElementById('insp-size').textContent = formatBytes(Storage.totalSizeBytes());
+    document.getElementById('insp-size').textContent   = formatBytes(Storage.totalSizeBytes());
     document.getElementById('insp-schema').textContent = 'v' + SCHEMA_VERSION;
-    document.getElementById('insp-state').textContent = State.get();
-
-    // Session
+    document.getElementById('insp-state').textContent  = State.get();
     if (session === null) {
       document.getElementById('insp-session').textContent = 'None';
       document.getElementById('insp-lastact').textContent = '—';
@@ -1162,8 +2707,6 @@ const Inspector = (() => {
       document.getElementById('insp-session').textContent = `Active (${session.logEntries.length} logged)`;
       document.getElementById('insp-lastact').textContent = formatDate(session.lastActivityTimestamp);
     }
-
-    // History
     const count = history.sessions.length;
     document.getElementById('insp-histcount').textContent = count;
     if (count === 0) {
@@ -1173,12 +2716,9 @@ const Inspector = (() => {
       document.getElementById('insp-oldest').textContent = formatDate(history.sessions[0].date);
       document.getElementById('insp-newest').textContent = formatDate(history.sessions[count - 1].date);
     }
-
-    // Backup
     document.getElementById('insp-lastexport').textContent = formatDate(settings.lastExportDate);
     document.getElementById('insp-lastbackup').textContent = formatDate(settings.lastBackupConfirmedDate);
   }
-
   function showRawJson() {
     const dump = {
       plan:     Storage.loadKey('plan'),
@@ -1186,198 +2726,120 @@ const Inspector = (() => {
       history:  Storage.loadKey('history'),
       settings: Storage.loadKey('settings')
     };
-    const text = JSON.stringify(dump, null, 2);
-    // Open in a new tab as plain text so user can copy
-    const blob = new Blob([text], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+    const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
     window.open(url, '_blank');
-    // Revoke after a delay to allow the tab to load
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
-
-  // Clear history flow — requires typed "ERASE" confirmation
   function requestClearHistory() {
-    const overlay = document.getElementById('confirm-clear');
     const input = document.getElementById('confirm-input');
     const okBtn = document.getElementById('confirm-ok-btn');
     input.value = '';
     okBtn.disabled = true;
-    overlay.classList.add('active');
-    input.oninput = () => {
-      okBtn.disabled = input.value !== 'ERASE';
-    };
+    document.getElementById('confirm-clear').classList.add('active');
     setTimeout(() => input.focus(), 50);
   }
-
-  function cancelClear() {
-    document.getElementById('confirm-clear').classList.remove('active');
-  }
-
+  function cancelClear() { document.getElementById('confirm-clear').classList.remove('active'); }
   function doClear() {
-    const history = Storage.defaultHistory();
-    Storage.saveKey('history', history);
+    Storage.saveKey('history', Storage.defaultHistory());
     Diag.add('storage', 'History cleared by user');
     cancelClear();
     refresh();
-    UI.raiseBanner('cleared', 'info', 'History has been cleared.', 'Dismiss', null);
+    UI.raiseBanner('cleared', 'info', 'History cleared.', 'Dismiss', null);
   }
-
   return { refresh, showRawJson, requestClearHistory, cancelClear, doClear };
 })();
 
 // ═══════════════════════════════════════════════════════════════
-// LIFECYCLE / SESSION MANAGEMENT
+// LIFECYCLE
 // ═══════════════════════════════════════════════════════════════
-// Step 1 scope: session plumbing only. No voice, no workout logic.
-// The close-tab rule is fully implemented here because it's a storage
-// concern, not a voice concern.
 const Lifecycle = (() => {
+  const STALE_MS = CONFIG.STALE_SESSION_HOURS * 3600000;
 
-  const STALE_THRESHOLD_MS = CONFIG.STALE_SESSION_HOURS * 60 * 60 * 1000;
-
-  // On load, check for a stale session and auto-finalize if needed.
-  // Returns 'fresh' (no session), 'resumable' (recent session), or
-  // 'finalized' (stale session rolled to history).
   function evaluateSessionOnLoad() {
     const session = Storage.loadKey('session');
     if (session === null) {
-      Diag.add('lifecycle', 'No prior session on load');
+      Diag.add('lifecycle', 'No prior session');
       return 'fresh';
     }
-
     const age = Date.now() - session.lastActivityTimestamp;
-    if (age > STALE_THRESHOLD_MS) {
-      Diag.add('lifecycle', `Stale session (age ${Math.round(age / 3600000)}h) → auto-finalize`);
-      autoFinalizeSession(session);
+    if (age > STALE_MS) {
+      Diag.add('lifecycle', `Stale session (${Math.round(age/3600000)}h) → auto-finalize`);
+      _autoFinalizeSession(session);
       return 'finalized';
     }
-
-    Diag.add('lifecycle', `Recent session (age ${Math.round(age / 60000)}m) → resumable`);
+    Diag.add('lifecycle', `Resumable session (${Math.round(age/60000)}m old)`);
     return 'resumable';
   }
 
-  // Convert a live session to a history entry, apply queued plan
-  // changes, and clear the session key. Per spec Section 6.4.1.
-  function autoFinalizeSession(session) {
+  function _autoFinalizeSession(session) {
     const history = Storage.loadKey('history');
     const plan    = Storage.loadKey('plan');
-
-    // Apply any queued next-time changes to the plan
     if (Array.isArray(session.pendingPlanChanges)) {
       session.pendingPlanChanges.forEach(ch => {
         const ex = plan.exercises.find(e => e.id === ch.exId);
-        if (ex && ch.field in ex) {
-          ex[ch.field] = ch.value;
-          Diag.add('lifecycle', `Applied plan change: ${ch.exId}.${ch.field} = ${ch.value}`);
-        }
+        if (ex && ch.field in ex) ex[ch.field] = ch.value;
       });
       Storage.saveKey('plan', plan);
     }
-
-    // Build history record
     const startMs = new Date(session.startTime).getTime();
     const endMs   = session.lastActivityTimestamp;
-    const durationMin = Math.max(0, Math.round((endMs - startMs) / 60000));
-
     const record = {
       id: session.id,
       date: session.startTime.slice(0, 10),
       startTime: session.startTime,
-      duration: durationMin,
+      duration: Math.max(0, Math.round((endMs - startMs) / 60000)),
       logEntries: session.logEntries || [],
       sessionNote: session.sessionNote || '',
       planChanges: session.pendingPlanChanges || [],
-      autoFinalizedOnClose: true
+      autoFinalizedOnClose: true,
+      schemaVersion: SCHEMA_VERSION
     };
     history.sessions.push(record);
     Storage.saveKey('history', history);
-
-    // Clear session
     Storage.saveKey('session', null);
-
-    UI.raiseBanner(
-      'auto-finalized',
-      'info',
-      'Prior session was auto-saved to history.',
-      'Dismiss',
-      null
-    );
+    UI.raiseBanner('auto-finalized', 'info', 'Prior session auto-saved to history.', 'Dismiss', null);
   }
 
-  // Persist the current session (future use in Step 2+). In Step 1,
-  // called only by debugStartSession() to prove the round-trip works.
-  function saveSessionWithHeartbeat(session) {
-    if (session) {
-      session.lastActivityTimestamp = Date.now();
-    }
-    Storage.saveKey('session', session);
+  function buildResumeScreen(session) {
+    const plan = Storage.loadKey('plan');
+    const ex = plan && plan.exercises[session.currentIndex];
+    document.getElementById('resume-ex-name').textContent =
+      ex ? ex.name.toUpperCase() : 'Unknown';
+    const logCount = new Set(session.logEntries.map(e => e.exId)).size;
+    const total = plan ? plan.exercises.length : 0;
+    const ageMin = Math.round((Date.now() - session.lastActivityTimestamp) / 60000);
+    document.getElementById('resume-stat').innerHTML =
+      `${logCount} of ${total} exercises logged<br>Last active: ${ageMin < 2 ? 'just now' : ageMin + ' min ago'}`;
   }
 
-  return {
-    evaluateSessionOnLoad,
-    autoFinalizeSession,
-    saveSessionWithHeartbeat
-  };
+  return { evaluateSessionOnLoad, buildResumeScreen };
 })();
 
 // ═══════════════════════════════════════════════════════════════
-// PRE-FLIGHT CHECKS (HTTPS, PWA, online)
+// PREFLIGHT
 // ═══════════════════════════════════════════════════════════════
 const Preflight = (() => {
-
-  // HTTPS check: returns true if running on http or file: (both bad for mic).
-  // localhost is tolerated for development.
   function isInsecure() {
     const proto = location.protocol;
-    const host = location.hostname;
+    const host  = location.hostname;
     if (proto === 'https:') return false;
     if (host === 'localhost' || host === '127.0.0.1') return false;
-    if (proto === 'file:') return true;
-    if (proto === 'http:') return true;
-    return false;
+    return proto === 'file:' || proto === 'http:';
   }
-
-  // PWA detection: iOS sets navigator.standalone=true when launched
-  // from Home Screen as a full-screen web app. SpeechRecognition is
-  // broken in that mode per spec Section C3.
   function isPWAStandalone() {
     if (typeof navigator !== 'undefined' && navigator.standalone === true) return true;
-    // Android / other: display-mode media query
     if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
     return false;
   }
-
-  function isOffline() {
-    return typeof navigator !== 'undefined' && navigator.onLine === false;
-  }
-
+  function isOffline() { return typeof navigator !== 'undefined' && navigator.onLine === false; }
   return { isInsecure, isPWAStandalone, isOffline };
 })();
 
 // ═══════════════════════════════════════════════════════════════
-// DEBUG NAMESPACE — exposed as window.__iv and IV for testing
+// IV — public namespace (accessible as window.IV in dev console)
 // ═══════════════════════════════════════════════════════════════
-// Accessible from the browser dev console. Used by the test scenarios
-// documented in the build log. Also wired to on-screen buttons in the
-// Step 1 debug panel for target-device testing.
-
-// Show a brief status message in the debug panel on the welcome screen.
-// Color-coded: 'ok' (green, default), 'err' (red), 'warn' (yellow).
-function debugStatus(msg, type) {
-  const el = document.getElementById('debug-status');
-  if (!el) return;
-  el.textContent = msg || '';
-  const colorMap = { ok: 'var(--ok)', err: 'var(--err)', warn: 'var(--warn)' };
-  el.style.color = colorMap[type] || colorMap.ok;
-  // Clear after 4 seconds unless replaced
-  if (debugStatus._timer) clearTimeout(debugStatus._timer);
-  debugStatus._timer = setTimeout(() => {
-    if (el.textContent === msg) el.textContent = '';
-  }, 4000);
-}
-
 const IV = {
-  // Public UI entry points (called from HTML)
   showScreen: UI.showScreen,
   inspector: {
     showRawJson: Inspector.showRawJson,
@@ -1385,171 +2847,84 @@ const IV = {
     cancelClear: Inspector.cancelClear,
     doClear: Inspector.doClear
   },
-
-  // ─── Debug helpers for Step 1 testing ───
-  // Because iOS Safari doesn't expose a JavaScript console on the phone,
-  // these helpers write user-visible status messages to the debug panel
-  // and, where appropriate, auto-reload the page so the user doesn't have
-  // to remember to do it.
-
-  // Create a fake live session to exercise the storage layer
-  debugStartSession() {
-    const session = {
-      schemaVersion: SCHEMA_VERSION,
-      id: Date.now().toString(36),
-      startTime: new Date().toISOString(),
-      currentIndex: 0,
-      logEntries: [],
-      sessionNote: '',
-      pendingPlanChanges: [],
-      lastActivityTimestamp: Date.now()
-    };
-    Storage.saveKey('session', session);
-    State.transition(STATES.LISTENING, 'debugStartSession');
-    UI.raiseBanner(
-      'debug-started',
-      'info',
-      'Debug session started. In Step 2 this will launch the real workout UI.',
-      'Dismiss',
-      null
-    );
-    Diag.add('debug', 'Simulated session start');
-    debugStatus('Session started. Check Storage screen.');
-  },
-
-  // Force current session to appear stale (test close-tab rule).
-  // Automatically reloads so the user sees the auto-finalize behavior.
+  // Debug helpers (console access, no on-screen panel in Step 2)
+  debugStartSession:      () => Session.start(),
   debugMakeSessionStale(hoursAgo) {
     hoursAgo = hoursAgo || 7;
     const session = Storage.loadKey('session');
-    if (!session) {
-      debugStatus('No session to make stale. Tap SIMULATE START first.', 'err');
-      return;
-    }
-    session.lastActivityTimestamp = Date.now() - (hoursAgo * 60 * 60 * 1000);
+    if (!session) { console.warn('No session'); return; }
+    session.lastActivityTimestamp = Date.now() - hoursAgo * 3600000;
     Storage.saveKey('session', session);
-    Diag.add('debug', `Session timestamped ${hoursAgo}h ago; reloading`);
-    debugStatus(`Session set to ${hoursAgo}h ago. Reloading in 2s…`);
-    setTimeout(() => location.reload(), 2000);
+    console.log(`Session timestamped ${hoursAgo}h ago. Reload to trigger auto-finalize.`);
   },
-
-  // Corrupt a storage key to test recovery.
-  // Automatically reloads so the user sees the recovery banner.
   debugCorruptKey(keyName) {
-    if (!STORAGE_KEYS[keyName]) {
-      debugStatus(`Unknown key: ${keyName}`, 'err');
-      return;
-    }
+    if (!STORAGE_KEYS[keyName]) { console.warn(`Unknown key: ${keyName}`); return; }
     localStorage.setItem(STORAGE_KEYS[keyName], '{not valid json');
-    Diag.add('debug', `${keyName} corrupted; reloading`);
-    debugStatus(`${keyName} corrupted. Reloading in 2s…`);
-    setTimeout(() => location.reload(), 2000);
+    console.log(`${keyName} corrupted. Reload to see recovery.`);
   },
-
-  // Wipe all Iron Voice data (for clean-slate testing).
-  // Auto-reloads to complete the reset.
   debugWipeAll() {
-    // Use native confirm; works on iOS
-    const confirmed = confirm('Wipe ALL Iron Voice data? (for testing only)');
-    if (!confirmed) return;
-    for (const key of Object.values(STORAGE_KEYS)) {
-      localStorage.removeItem(key);
-    }
-    // Also clean up any corruption stashes
+    if (!confirm('Wipe ALL Iron Voice data? (testing only)')) return;
+    for (const key of Object.values(STORAGE_KEYS)) localStorage.removeItem(key);
     const toRemove = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (k && k.startsWith('iv.corrupt.v2.')) toRemove.push(k);
     }
     toRemove.forEach(k => localStorage.removeItem(k));
-    Diag.add('debug', 'All data wiped by user');
-    debugStatus('All data wiped. Reloading in 2s…');
-    setTimeout(() => location.reload(), 2000);
+    location.reload();
   },
-
-  // Read-only access to diagnostics
-  diag: {
-    all: () => Diag.all(),
-    clear: () => Diag.clear()
-  },
-
-  // Read-only access to state
-  state: {
-    get: () => State.get(),
-    // Allow forced transition from console for testing
-    debugTransition: (to, reason) => State.transition(to, reason || 'debug console')
-  },
-
-  // Read-only access to storage
-  storage: {
-    loadKey: Storage.loadKey,
-    totalSize: Storage.totalSizeBytes
-  },
-
-  // Constants for console inspection
-  STATES,
-  STORAGE_KEYS,
-  SCHEMA_VERSION,
-  CONFIG
+  diag:        { all: () => Diag.all(), clear: () => Diag.clear() },
+  state:       { get: () => State.get(), debugTransition: (to, r) => State.transition(to, r || 'debug') },
+  storage:     { loadKey: Storage.loadKey, totalSize: Storage.totalSizeBytes },
+  session:     { getData: Session.getData, getPlan: Session.getPlan },
+  STATES, STORAGE_KEYS, SCHEMA_VERSION, CONFIG
 };
-
-// Expose to global so dev tools can use it
-window.IV = IV;
-window.__iv = IV; // alias for convenience
+window.IV  = IV;
+window.__iv = IV;
 
 // ═══════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════
 function init() {
   Diag.load();
-  Diag.add('init', 'App starting', {
-    ua: navigator.userAgent,
-    proto: location.protocol,
-    host: location.hostname
+  Diag.add('init', 'App starting v2.0.1 Step 2', {
+    ua: navigator.userAgent, proto: location.protocol, host: location.hostname
   });
 
-  // Pre-flight checks in priority order
+  // Pre-flight in priority order
   if (Preflight.isPWAStandalone()) {
-    Diag.add('init', 'PWA standalone mode detected — blocking');
+    Diag.add('init', 'PWA mode blocked');
     UI.showScreen('pwa');
     State.forceReset(STATES.ERROR, 'PWA blocked');
     return;
   }
-
   if (Preflight.isInsecure()) {
-    Diag.add('init', 'Insecure origin detected — blocking');
+    Diag.add('init', 'Insecure origin blocked');
     UI.showScreen('https');
     State.forceReset(STATES.ERROR, 'HTTPS required');
     return;
   }
 
-  // Load all keys (this will trigger default-initialization and
-  // corruption recovery as needed)
+  // Load all keys (triggers defaults / corruption recovery as needed)
   Storage.loadKey('plan');
   Storage.loadKey('history');
   Storage.loadKey('settings');
 
-  // Session needs special handling via Lifecycle
+  // Session evaluation
   const sessionStatus = Lifecycle.evaluateSessionOnLoad();
   Diag.add('init', `Session status: ${sessionStatus}`);
 
-  // Offline banner if applicable
-  if (Preflight.isOffline()) {
-    UI.raiseOfflineBanner();
-  }
+  if (Preflight.isOffline()) UI.raiseOfflineBanner();
 
-  // Register lifecycle listeners
-  window.addEventListener('online',  () => {
-    Diag.add('lifecycle', 'Online');
-    UI.clearBanner('offline');
-  });
-  window.addEventListener('offline', () => {
-    Diag.add('lifecycle', 'Offline');
-    UI.raiseOfflineBanner();
-  });
+  // Online/offline listeners
+  window.addEventListener('online',  () => { Diag.add('lifecycle', 'Online');  UI.clearBanner('offline'); });
+  window.addEventListener('offline', () => { Diag.add('lifecycle', 'Offline'); UI.raiseOfflineBanner(); });
 
   document.addEventListener('visibilitychange', () => {
-    Diag.add('lifecycle', `visibilitychange → ${document.visibilityState}`);
+    Diag.add('lifecycle', `visibility → ${document.visibilityState}`);
+    if (document.visibilityState === 'visible' && Session.getData()) {
+      Session.heartbeat();
+    }
   });
 
   window.addEventListener('beforeunload', () => {
@@ -1557,18 +2932,23 @@ function init() {
     Diag.save();
   });
 
-  // Periodic diagnostics save (every 30s while app is open)
+  // Periodic diag save
   setInterval(() => Diag.save(), 30000);
 
-  // Default to welcome screen
-  UI.showScreen('welcome');
-  State.transition(STATES.IDLE, 'init complete');
+  // Route to correct initial screen
+  if (sessionStatus === 'resumable') {
+    const session = Storage.loadKey('session');
+    Lifecycle.buildResumeScreen(session);
+    UI.showScreen('resume');
+  } else {
+    UI.showScreen('welcome');
+  }
 
-  Diag.add('init', 'Ready');
-  console.log('[IV] Iron Voice Step 1 skeleton loaded. Try IV.diag.all() or IV.state.get() in the console.');
+  State.transition(STATES.IDLE, 'init complete');
+  Diag.add('init', 'Ready — Step 2');
+  console.log('[IV] Iron Voice Step 2 loaded. Session:', sessionStatus, '| IV.session.getData() | IV.state.get()');
 }
 
-// Start on load
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
