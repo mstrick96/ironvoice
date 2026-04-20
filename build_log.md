@@ -31,7 +31,7 @@ Each step produces a testable artifact. Do not proceed to the next step until th
 | Step | Name | Status |
 |------|------|--------|
 | 1 | Skeleton + storage architecture | 🟢 Complete |
-| 2 | State machine + UI shell | 🟡 Ready to start |
+| 2 | State machine + UI shell | 🟡 Ready to test |
 | 3 | Voice loop (Layer 1 wake word + basic commands) | ⚪ Not started |
 | 4 | Full command grammar (Layer 2) | ⚪ Not started |
 | 5 | Layer 3 intent matching | ⚪ Not started |
@@ -99,176 +99,147 @@ Things that are correct to note but are not blockers for now:
 
 ## Step 1 — Skeleton + Storage Architecture
 
-**Goal:** Lay the foundation. Single HTML file with the storage layer, state machine skeleton, and migration/initialization logic. No voice yet. No UI content yet. The app should load, show a minimal placeholder welcome screen, correctly initialize storage on first run, correctly detect a stale session, correctly apply the close-tab rule, and correctly save/load plan data. Testable entirely with manual UI interaction and browser dev tools.
+**Status: 🟢 Complete — all 8 device tests passed**
 
-### Exit criteria (all must be met before Step 2)
+**Goal:** Lay the foundation. Single HTML file with the storage layer, state machine skeleton, and migration/initialization logic. No voice. No UI content. The app loads, shows a minimal welcome screen, correctly initializes storage on first run, correctly detects a stale session, correctly applies the close-tab rule, and correctly saves/loads plan data.
 
-1. **Single file loads without errors** in Safari and Edge on iPhone from the GitHub Pages URL.
-2. **First launch** creates all four storage keys (`iv.plan.v2`, `iv.session.v2` (null), `iv.history.v2` (empty array), `iv.settings.v2`) with correct schema version and default values.
-3. **Subsequent launches** read the stored values correctly and do not overwrite them with defaults.
-4. **Corrupted JSON in any key** is detected, stashed to `iv.corrupt.v2.<timestamp>`, and the key is reset to defaults. A banner is shown to the user.
-5. **Schema migration ladder** exists (even if trivially empty at v2 → v2) and is exercised on load.
-6. **Close-tab rule** works: manually setting `lastActivityTimestamp` to a value more than 6 hours ago triggers auto-finalize on load (session becomes a history entry with `autoFinalizedOnClose: true`, session is cleared, welcome screen is shown).
-7. **Storage inspector** screen exists and shows: size in KB, session count, date range, last export, last backup. Buttons present but may be stubs. Clear button requires typed confirmation.
-8. **State machine skeleton** exists with all five states defined and a single `transition()` function that is the only way to change state. State transitions are logged to the diagnostic buffer.
-9. **PWA detection** works: launching from home screen shows a block screen.
-10. **HTTPS detection** works: loading from a non-HTTPS origin shows a clear error.
-11. **Online/offline detection** works: `navigator.onLine` false shows a banner.
+### Exit criteria (all met)
 
-### What is explicitly NOT in Step 1
+1. Single file loads without errors in Safari and Edge on iPhone from the GitHub Pages URL.
+2. First launch creates all four storage keys with correct schema version and default values.
+3. Subsequent launches read stored values correctly and do not overwrite them with defaults.
+4. Corrupted JSON in any key is detected, stashed to `iv.corrupt.v2.<timestamp>`, and the key is reset to defaults with a banner shown.
+5. Schema migration ladder exists and is exercised on load.
+6. Close-tab rule works: `lastActivityTimestamp` older than 6 hours triggers auto-finalize on next load.
+7. Storage inspector screen exists with size, session count, date range, last export, last backup. Clear button requires typed confirmation "ERASE".
+8. State machine skeleton exists with all five states and a single `transition()` function as the only path to change state.
+9. PWA detection works: launching from home screen shows a block screen.
+10. HTTPS detection works: loading from a non-HTTPS origin shows a clear error.
+11. Online/offline detection works: `navigator.onLine` false shows a banner.
 
-- Voice (no SpeechRecognition, no SpeechSynthesis)
-- Rest timer (no countdown logic yet)
-- Wake Lock
-- Full UI (no exercise cards, no set dots, no tab panels)
-- Command parser
-- CSV export
-- Anything in Sections 3, 4.4–4.7, 5, 6.2, 9.3, 9.4 of the spec
+### What is NOT in Step 1
+Voice, rest timer, wake lock, full UI (no exercise cards, set dots, tab panels), command parser, CSV export.
 
-### Code organization
+### Decision log for Step 1
 
-The HTML file will be structured in clearly labeled sections:
+- **Confirmation word is case-sensitive.** Typing "ERASE" enables the Clear History button; "erase" does not. Prevents accidental clears given iOS auto-capitalize.
+- **Session storage uses `null` for "no active session"**, not an empty object. Avoids ambiguity.
+- **`iv.diag.v2` uses a schema-less array.** Diagnostic entries are `{t, cat, msg, extra}`. Capped at 100 entries. No schemaVersion wrapper because format is internal-only.
+- **State transitions use an explicit allowed-transitions table.** `ALLOWED_TRANSITIONS[from]` enumerates valid next states. Illegal transitions are logged and blocked. `State.forceReset()` is the only bypass, used only for HTTPS/PWA blocks.
+- **Preflight checks run in priority order on `init()`:** PWA block → HTTPS block → storage load → offline banner.
+- **`window.IV` and `window.__iv` both exposed** as the debug namespace.
+- **Debug helpers built in:** `IV.debugStartSession()`, `IV.debugMakeSessionStale(hours)`, `IV.debugCorruptKey(name)`, `IV.debugWipeAll()`. Will be kept through Step 7, possibly behind `?debug=1` in final build.
+- **Corruption stash keys** namespaced as `iv.corrupt.v2.<keyname>.<timestamp>` so you can tell what was corrupted, not just when.
+- **On-device debug panel** added during Step 1 revision — seven buttons replacing console commands that only work on desktop. Auto-reloads after 2 seconds for actions that require it.
+- **Diagnostic log viewer screen** added — last 100 internal events, color-coded by category (state, storage, lifecycle). Replaces console.log for on-device testing.
+- **CSS specificity bug fixed:** `.inspector-actions button` was overriding `.btn-danger`. Fixed by adding `.inspector-actions button.btn-danger` with explicit red styling. Rule of thumb established: always verify variant classes (`.btn-danger`, `.btn-primary`) still win when applied inside scoped containers.
+- **Debug panel and diaglog screen are transitional** — removed in Step 2. No `?debug=1` needed for Step 1 scaffolding.
 
-```
-<!DOCTYPE html>
-<html>
-<head>
-  <!-- Meta, viewport, title -->
-</head>
-<body>
+**Lesson learned:** Console-based testing instructions assume desktop browsers. For any step that needs interactive testing on iPhone, build the test controls into the app itself during code generation, not as an afterthought.
 
-  <!-- ─── UI CONTAINERS (placeholders in Step 1) ─── -->
-  <!-- overlays: welcome, pwa-block, https-error, storage-inspector -->
-  <!-- main card (stub) -->
-  <!-- diagnostic footer (dev only) -->
+---
 
-  <style>
-    /* ─── BASE STYLES ─── */
-    /* ─── OVERLAY STYLES ─── */
-    /* ─── COMPONENT STYLES ─── */
-  </style>
+## Step 2 — State Machine + UI Shell
 
-  <script>
-    // ═══════════════════════════════════════════════
-    // CONFIGURATION (user-editable constants)
-    // ═══════════════════════════════════════════════
-    //   WAKE_WORD, WAKE_WORD_FALLBACK, DEFAULT_PLAN, etc.
+**Status: 🟡 Code produced — ready for device testing**
 
-    // ═══════════════════════════════════════════════
-    // CONSTANTS (internal, do not edit)
-    // ═══════════════════════════════════════════════
-    //   STORAGE_KEYS, SCHEMA_VERSIONS, STATE_NAMES, etc.
+**Goal:** Full workout UI with tap-driven interaction. No voice yet. Every screen present and navigable. Session lifecycle works end-to-end. Plan editor functional. Voice state machine wired to UI but voice itself is stubbed — the badge shows "STEP 2 · TAP" where the voice indicator will eventually appear.
 
-    // ═══════════════════════════════════════════════
-    // DIAGNOSTICS (ring buffer + console mirror)
-    // ═══════════════════════════════════════════════
+### What was added in Step 2
 
-    // ═══════════════════════════════════════════════
-    // STORAGE LAYER
-    // ═══════════════════════════════════════════════
-    //   loadKey / saveKey / migrate / validate / stashCorrupt
+**Removed from Step 1:** debug panel HTML, diaglog screen. `IV.debugStartSession()` now calls the real `Session.start()` instead of a stub.
 
-    // ═══════════════════════════════════════════════
-    // STATE MACHINE
-    // ═══════════════════════════════════════════════
-    //   currentState, transition(), onEnter, onExit
+**New screens:** Resume, Workout, Summary, Plan Editor. (Welcome, Storage, PWA, HTTPS carried forward from Step 1.)
 
-    // ═══════════════════════════════════════════════
-    // UI RENDERING (Step 1: minimal placeholders)
-    // ═══════════════════════════════════════════════
+**Voice aliases:** every exercise in `DEFAULT_PLAN` has an `aliases: string[]` field used by the Layer 2 parser in Step 3. Hip Adduction uses `['hip adduction', 'adduction', 'adductor', 'inner thigh', 'add machine']`; Hip Abduction uses `['hip abduction', 'abduction', 'abductor', 'outer thigh', 'ab machine']` — maximally distinct because they are acoustically near-identical and adjacent in the circuit.
 
-    // ═══════════════════════════════════════════════
-    // LIFECYCLE HANDLERS
-    // ═══════════════════════════════════════════════
-    //   load, beforeunload, visibilitychange
+**Tap-to-edit weight/reps:** tapping either value button opens a bottom-sheet. "Today Only" writes to `session.todayOverrides`. "Save for Next Time" also queues a `pendingPlanChange` applied at session end.
 
-    // ═══════════════════════════════════════════════
-    // INIT
-    // ═══════════════════════════════════════════════
-  </script>
-</body>
-</html>
-```
+**Plan Editor:** deep-copy workflow. Expand/collapse per exercise. Full field editing (name, type, weight/reps/sets/rest or level/duration, coaching note, voice aliases). Up/down reorder. Delete. Add exercise. Saves only on Done; Cancel discards.
 
-Each major section will have a `// REGRESSION HAZARD:` comment on any code path that later steps should not casually modify.
+**End-workout confirmation:** overlay showing exercise count and elapsed time. "Keep Going" dismisses; "Yes, End Workout" finalizes.
 
-### Testing Step 1
+**Session module:** `_data` (live session object) and `_plan` (loaded plan copy). Methods: `start()`, `resume()`, `startFresh()`, `navigate(delta)`, `goTo(index)`, `logSet()`, `undoLastSet()`, `applyTodayOverride(field, value)`, `queuePlanChange(field, value)`, `markNoteSeen(exId)`, `end()`. Every mutation calls `heartbeat()` which updates `lastActivityTimestamp` and saves to localStorage.
 
-Tests are manual and use browser dev tools. You do not need automated tests for this project.
+**Session data fields added in Step 2:** `todayOverrides: {}`, `noteSeenIds: []`. Existing carried forward: `id`, `startTime`, `currentIndex`, `logEntries`, `pendingPlanChanges`, `sessionNote`, `lastActivityTimestamp`, `schemaVersion`.
 
-**Test scenarios to run on iPhone:**
+**Log entry fields:** `id, exId, name, type, setNum, timestamp` plus for strength: `weight, reps`; for timed: `level, duration`.
 
-1. **First launch:** open Pages URL. Welcome screen appears. Open dev tools (Safari: Develop menu from Mac mirror, or Web Inspector). Verify four `iv.*` keys exist in localStorage with correct schema versions.
-2. **Second launch:** close tab, reopen. Same state preserved.
-3. **Corruption handling:** in dev tools, manually set `iv.plan.v2` to `not valid json`. Reload. Banner should appear; key should be reset to default; corrupted value should exist under `iv.corrupt.v2.<timestamp>`.
-4. **Close-tab rule:** in dev tools, manually set `iv.session.v2` to a realistic session object with `lastActivityTimestamp` set to 7 hours ago. Reload. Session should be auto-finalized into history; welcome screen should show; banner mentioning "prior session auto-saved" should appear.
-5. **PWA block:** Add to Home Screen. Launch from home screen icon. Block screen appears instead of welcome.
-6. **HTTPS check:** temporarily download the HTML file and open it from Files app (file:// URL). HTTPS error should appear.
-7. **Offline:** enable airplane mode. Reload. Offline banner should appear.
-8. **Storage inspector:** navigate to Storage screen from welcome. All metrics display correctly.
+### Exit criteria — test all 13 on iPhone before marking Step 2 complete
 
-### Step 1 deliverable
+1. **BEGIN WORKOUT** → workout card appears showing the first exercise.
+2. **Navigation** → PREV and NEXT cycle through all 13 exercises without errors or blank cards.
+3. **Logging a set (strength)** → tap a set dot; it fills in; a confirmation badge briefly appears on the card.
+4. **Logging a set (timed)** → on the Bike card, tap MARK DONE; set logs correctly.
+5. **Tap-to-edit weight — Today Only** → bottom sheet opens; tap Today Only; weight changes on card; no banner; plan not modified.
+6. **Tap-to-edit weight — Save for Next Time** → bottom sheet opens; tap Save for Next Time; weight changes on card; banner appears confirming plan change queued.
+7. **Tap-to-edit reps** → same two-path test as weight.
+8. **Exercises tab** → shows all exercises with done/not-done indicators; tap any exercise to jump directly to its card.
+9. **Session Log tab** → shows all logged sets, newest first.
+10. **End workout flow** → tap END → overlay shows exercise count and elapsed time → "Keep Going" dismisses → tap END again → "Yes, End Workout" → Summary screen shows correct stats.
+11. **Summary → Welcome** → tap Back to Home → Welcome shows updated session count.
+12. **Resume flow** → close the tab mid-workout; reopen the URL → Resume screen shows the exercise you were on, sets logged, time since last activity → tap Resume → workout card restores to correct position. Also test: tap Start Fresh → fresh workout begins from exercise 1.
+13. **Plan Editor** → tap Edit Plan → expand an exercise → edit name, weight, reps, a voice alias → Save Exercise → fields update in list → reorder with arrows → delete an exercise → add a new exercise → Done → changes persist when re-entering Plan Editor. Also: Cancel discards all changes.
 
-A single file: `IronVoice.html`, uploaded to the repository root. The live URL `https://mstrick96.github.io/ironvoice/IronVoice.html` should run the Step 1 skeleton.
+**Bonus checks (not blocking but note any issues):**
+- Bottom sheet on tap-to-edit should feel like a natural iOS sheet (slides up from bottom).
+- Set dots should be large enough to tap reliably with gym-sweaty fingers.
+- Hip Adduction and Hip Abduction voice aliases in Plan Editor are visibly distinct from each other.
+- Jump-to-exercise from Exercises tab should feel instant.
 
-Update this build log with completion date, any decisions made during implementation, and any issues deferred.
+### What is NOT in Step 2
+Voice (SpeechRecognition, SpeechSynthesis), rest timer, wake lock, CSV export.
+
+---
+
+## Step 3 — Voice Loop (planned, not started)
+
+**Scope:** SpeechRecognition setup, wake word detection with fuzzy match, Layer 1 parser, TTS warm-keep, state machine wiring for LISTENING / SPEAKING / PROCESSING. The "STEP 2 · TAP" badge becomes a live voice status indicator.
+
+**Prerequisites:** Step 2 passes all 13 exit criteria on device.
 
 ---
 
 ## Decision log (chronological)
 
-This section tracks decisions made during implementation, most recent first.
+### 2026-04-19 — Step 2 code produced
+
+**Design decisions finalized during Step 2:**
+
+- **Voice aliases per exercise** are stored in the exercise object in `DEFAULT_PLAN`. This means aliases are user-editable via the Plan Editor and persist with the plan. The Layer 2 parser in Step 3 will build its lookup table from whatever aliases are currently in the saved plan, not from a hardcoded list. This is correct behavior: if the user renames an exercise or adds an alias, voice recognition adapts.
+
+- **Hip Adduction / Hip Abduction alias separation** deliberate engineering decision: these two exercises are acoustically very close and adjacent in the circuit. Their alias lists were designed to be maximally distinct. Adduction = inner thigh muscles / add machine. Abduction = outer thigh muscles / ab machine. If a future user test reveals persistent confusion between them, the fallback is to rename one exercise entirely in the plan editor rather than tune the fuzzy matcher.
+
+- **Today Only vs. Save for Next Time** uses `session.todayOverrides` and `session.pendingPlanChanges`. `getEffectiveValue(exId, field)` resolves in order: todayOverrides → plan value. Pending plan changes are applied to the plan object at `Session.end()`, then the plan is saved. This means if a session is abandoned (close-tab auto-finalize), pending plan changes are NOT applied — intentional. Only completed sessions update the plan.
+
+- **Set dot recording design:** set dots record what the user actually did, not what the plan says. The user may tap a set dot with overridden values, standard values, or after changing values mid-exercise. Whatever the current effective value is at the moment of the tap is what gets logged. The plan's `sets` field controls how many dots are shown initially, but extra taps beyond that number are allowed (additional sets). No enforcement.
+
+- **Plan Editor uses a deep copy.** `PlanEditor` module works entirely on a deep copy of the current plan until the user taps Done. This means navigation away from Plan Editor mid-edit and returning (via Cancel) leaves the plan unchanged. The copy is discarded; the original plan in storage is untouched.
+
+- **`IV.debugStartSession()` now calls real `Session.start()`** rather than a Step 1 stub. This means debug helpers can now be used for realistic session testing from the console if needed.
 
 ### 2026-04-19 — Step 1 complete
 
-All 8 tests on target device (iPhone, Safari) passed after one small cosmetic fix:
+All 8 tests on target device (iPhone, Safari) passed after one small cosmetic fix.
 
-**Bug found and fixed during testing:** Clear History button in Storage Inspector wasn't rendering with the expected red outline. Root cause was CSS specificity: `.inspector-actions button` selector was overriding the `.btn-danger` variant because it had higher specificity. Fixed by adding a more specific rule `.inspector-actions button.btn-danger` that restores the red outline/text styling. Confirms the visual hierarchy I intended: destructive actions look different from routine actions.
+**Bug fixed:** Clear History button in Storage Inspector wasn't rendering with expected red outline. Root cause was CSS specificity: `.inspector-actions button` selector was overriding `.btn-danger` because it had higher specificity. Fixed by adding `.inspector-actions button.btn-danger` restoring red outline/text styling.
 
-**Also added during Step 1 revision:**
-- On-device debug panel with seven buttons, replacing the console-command approach that only worked on desktop browsers. Each debug action gives visible status feedback. Actions requiring a reload auto-reload after 2 seconds.
-- Diagnostic log viewer screen — displays the last 100 internal events on the phone, color-coded by category (state, storage, lifecycle, etc.). This replaces what `console.log` was useful for on a desktop.
-- Decision: the debug panel and diaglog screen will be removed in Step 2 when real workout UI takes over. No `?debug=1` URL parameter needed — Step 1 scaffolding is transitional.
+**Added during Step 1 revision:** on-device debug panel with seven buttons (replacing console-command approach that only works on desktop browsers); diagnostic log viewer screen showing last 100 internal events color-coded by category.
 
-**Lessons for future steps:**
-- Console-based testing instructions assume desktop browsers and don't work for target-device (iPhone) testing. For any build step that needs interactive testing, build the test controls into the app itself. Do this *during* code generation, not as an afterthought.
-- CSS specificity matters when adding variant classes inside specific contexts. When I write `.btn-danger` and also write `.some-context button { ... }`, the context selector wins unless I anticipate it. Rule of thumb for this project: any time I write a variant class (`.btn-danger`, `.btn-primary`, etc.), I should verify it still wins when applied inside `.inspector-actions`, `.debug-panel-buttons`, or other scoped containers.
+**Decision:** debug panel and diaglog screen are transitional — removed in Step 2. No `?debug=1` URL parameter needed.
+
+**Lessons:** Console-based testing instructions assume desktop browsers and don't work for iPhone testing. Build test controls into the app during code generation. CSS specificity: when writing `.btn-danger` and also `.some-context button {}`, the context selector wins unless anticipated.
 
 ### 2026-04-18 — Step 1 code produced
 
-**File produced:** `index.html` at repo root. (Filename changed from `IronVoice.html` per user decision; shorter URL.)
+File produced: `index.html` at repo root. (Filename changed from `IronVoice.html` per user decision.)
 
-**Implementation decisions made during Step 1:**
+52 headless tests via jsdom, all passed. Test harness (`test.js`) not uploaded to repo — internal scaffolding only.
 
-- **Confirmation word is case-sensitive.** Typing "ERASE" enables the Clear History button; "erase" does not. iOS auto-capitalize is configured but the JS check is strict. This prevents accidental clears if iOS auto-capitalization behaves unexpectedly on the user's device.
-
-- **Session storage uses `null` for "no active session", not an empty object.** When there is no live session, `iv.session.v2` is either absent from localStorage (first load) or explicitly set to `null` (after end-of-workout). Both are handled as "no session" by the loader. This avoids ambiguity and keeps storage slightly smaller.
-
-- **`iv.diag.v2` uses a schema-less array of entries.** Diagnostic entries are `{t, cat, msg, extra}` objects. The buffer is capped at 100 entries and persists across sessions. Unlike the four main keys, diagnostics do not have a `schemaVersion` wrapper because the format is internal-only and changes to it don't need migration.
-
-- **State transitions use an explicit allowed-transitions table.** `ALLOWED_TRANSITIONS[from]` enumerates the valid next states. Attempted illegal transitions are logged and blocked. `State.forceReset()` exists as an escape hatch for error recovery (used only on HTTPS/PWA blocks) and bypasses the allowed-transitions check.
-
-- **Preflight checks run in a specific priority order** on `init()`: PWA block → HTTPS block → storage load → offline banner. PWA is first because it's the most user-visible and explains the symptom; HTTPS is second because it prevents the mic from ever working.
-
-- **`window.IV` and `window.__iv` are both exposed** as the debug namespace. Using `IV` in console is faster to type; `__iv` is the conventional "internal" name and avoids collision with any future global.
-
-- **Debug helpers are built in for testing.** `IV.debugStartSession()`, `IV.debugMakeSessionStale(hours)`, `IV.debugCorruptKey(name)`, `IV.debugWipeAll()`. These replace the "manually edit localStorage in dev tools" steps in the build log's test scenarios — tests now exercisable via two-keystroke console commands. They will be kept in Step 7 but possibly hidden behind a `?debug=1` URL parameter in the final release build.
-
-- **Corruption stash keys** are namespaced as `iv.corrupt.v2.<keyname>.<timestamp>`. The inclusion of `<keyname>` makes it easy to tell *what* was corrupted when looking at storage inspector output, not just when.
-
-**Testing performed:**
-
-- 52 headless tests via jsdom, covering: first-launch initialization, data preservation across loads, JSON corruption recovery, close-tab rule (stale session auto-finalize), PWA blocking, HTTPS blocking, offline banner, state machine enforcement (illegal transitions blocked), debug session creation, storage inspector values, clear history confirmation flow, and diagnostics buffer capture. All 52 passed.
-
-- The test harness itself (`test.js`) is not uploaded to the repo. It's internal development scaffolding, not part of the deliverable. If we need it in the repo later for regression testing it can be added.
-
-**Known deferred items (noted for future steps):**
-
-- The `viewRawJson` button in the storage inspector uses `window.open()` on a blob URL. This may be blocked by iOS Safari popup blockers. Alternative: open in an overlay with `<pre>` formatting. Deferring until Step 7 when we implement real export.
-- Font loading is implicit via `-apple-system`. If we ever wanted to guarantee identical typography on Edge iOS (which may use a different default), we'd embed a web font. Not needed for Step 1.
+Known deferred: `viewRawJson` button uses `window.open()` on a blob URL, which may be blocked by iOS Safari popup blockers. Deferring until Step 7.
 
 ### 2026-04-18 — index.html filename confirmed
-User chose `index.html` over `IronVoice.html`. Rationale: shorter URL, standard web convention, and GitHub Pages serves it as the root automatically.
+User chose `index.html` over `IronVoice.html`. Shorter URL, standard web convention, GitHub Pages serves it as root automatically.
 
 ### 2026-04-18 — Build log initiated
 Build log document created. Step 1 scoped out with exit criteria.
@@ -286,7 +257,7 @@ Wake word changed to "Iron". Voice preference updated to US male English. Bike t
 Initial complete rewrite specification. All v1.3.1 failure modes mapped to v2.0 fixes.
 
 ### 2026-04-17 — Rewrite decision made
-v1.3.1 engineering review documented 6 Critical, 17 Major, and 7 Minor findings. Scale of required changes (voice state machine, wall-clock timer, storage redesign, NLU, wake lock, browser compatibility) makes incremental patching more expensive than a clean rewrite.
+v1.3.1 engineering review documented 6 Critical, 17 Major, and 7 Minor findings. Scale of required changes makes incremental patching more expensive than a clean rewrite.
 
 ---
 
@@ -294,15 +265,15 @@ v1.3.1 engineering review documented 6 Critical, 17 Major, and 7 Minor findings.
 
 Copy and paste this into the first message of the new conversation:
 
-> I'm Michael. I'm working on the Iron Voice v2.0 rewrite — a single-file HTML voice-driven workout app for iPhone. We've completed the spec and are in the middle of the build. I'm uploading the current spec and build log. Please read both, confirm you're oriented, and pick up where the build log says we are.
+> I'm Michael. I'm working on the Iron Voice v2.0 rewrite — a single-file HTML voice-driven workout app for iPhone. We've completed Steps 1 and 2 of 7. I'm uploading the current spec, build log, and current index.html. Please read all three, confirm you're oriented, and pick up where the build log says we are.
 
 Then upload:
-1. `IronVoice_Spec_v2_0_1_Released.docx` (or the current spec version)
-2. `build_log.md` (this file, in its current state)
-3. If we're past Step 1: `IronVoice.html` (the current code)
+1. `IronVoice_Spec_v2_0_1_Released.docx` (or current spec version)
+2. `build_log.md` (this file, current version)
+3. `index.html` (current code)
 
-The spec is fixed. The build log is the running record. Claude will read both and resume at the correct point.
+The spec is fixed. The build log is the running record. Claude will read all three and resume at the correct point.
 
 ---
 
-*End of build log — last updated 2026-04-18.*
+*End of build log — last updated 2026-04-19 (Step 2 code produced, awaiting device test).*
