@@ -291,3 +291,14 @@ Fix: Added a small `⌂ HOME` button below the "IRON VOICE" brand text in the wo
 - If **sets have been logged**: shows a confirmation overlay ("Session is saved and can be resumed") with Keep Going / Go to Home. Choosing Go to Home leaves the session in localStorage intact — next launch will detect it and show the Resume screen.
 
 *End of build log — last updated 2026-04-19 (Step 2 patch 1).*
+
+### 2026-04-20 — Step 2 bug fixes (patch 2)
+
+**Bug fixed — Banner still overlapping header (root cause fully resolved):**
+Patch 1 made banners position:fixed above screens, but screens didn't know to push their content down — so the banner landed directly on top of whatever was already at y=0 (the workout header, in Michael's test). The workout header also had its own `padding-top: max(16px, env(safe-area-inset-top))`, which would have double-counted safe-area space if the screen was already offset.
+
+Full fix applied in patch 2:
+1. Added `--banner-h: 0px` CSS variable to `:root`.
+2. Changed `.screen` `padding-top` from `max(40px, env(safe-area-inset-top))` to `max(var(--banner-h), 40px, env(safe-area-inset-top))` — so when a banner is taller than the safe area (it includes safe-area padding in its own height), it wins and the screen content clears the banner; when no banner is present, safe-area wins as before.
+3. Removed the redundant `padding-top: max(16px, env(safe-area-inset-top))` from `.workout-header` — the parent `.screen` now handles safe-area offsetting for all screens; the header no longer double-counts it.
+4. Added a `MutationObserver` on `#banner-area` that updates `--banner-h` automatically whenever any banner is added, changed, or removed. No call site needs to remember to trigger the sync. Initial sync runs at startup.
