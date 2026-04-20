@@ -302,3 +302,27 @@ Full fix applied in patch 2:
 2. Changed `.screen` `padding-top` from `max(40px, env(safe-area-inset-top))` to `max(var(--banner-h), 40px, env(safe-area-inset-top))` — so when a banner is taller than the safe area (it includes safe-area padding in its own height), it wins and the screen content clears the banner; when no banner is present, safe-area wins as before.
 3. Removed the redundant `padding-top: max(16px, env(safe-area-inset-top))` from `.workout-header` — the parent `.screen` now handles safe-area offsetting for all screens; the header no longer double-counts it.
 4. Added a `MutationObserver` on `#banner-area` that updates `--banner-h` automatically whenever any banner is added, changed, or removed. No call site needs to remember to trigger the sync. Initial sync runs at startup.
+
+### 2026-04-20 — Step 2 bug fixes (patch 3)
+
+**Three issues addressed together:**
+
+**1. Banner overlap (strengthened fix)** — Patch 2 code was verified in the file (CSS variable, observer, workout-header cleanup all present), but the user reported no visible change on device. Two plausible causes: iOS Safari HTML cache or a timing subtlety in `offsetHeight` reads. Added belt-and-braces:
+- New `syncBannerOffsetNow()` function uses `requestAnimationFrame` to guarantee layout has completed before reading `offsetHeight`, then writes `--banner-h`.
+- Called directly after every `appendChild`, every `banner.remove()`, and every action-button dismiss in `raiseBanner`. The `MutationObserver` from patch 2 remains as a second safety net.
+- Version tag on Welcome screen bumped to **"VERSION 2.0.1 · STEP 2 · patch 3"** so the user can verify at a glance which code is actually loaded. If it reads "patch 3", all banner fixes are active.
+
+**2. Banner persistence across screens** — Plan-change and Plan-saved banners stayed up forever and followed the user to Welcome after Session.end(). Root cause: no auto-dismiss timer and no cross-screen cleanup.
+- Added `options` parameter to `raiseBanner(id, type, message, actionLabel, actionFn, options)`. Supports `transient: true` (marks banner for cleanup on screen change) and `autoDismissMs: N` (auto-removes after N ms).
+- `UI.clearTransientBanners()` removes all banners with `data-transient="1"` and re-syncs the banner offset. Called automatically at the top of `showScreen()`.
+- `plan-change` banner: 4s auto-dismiss, transient. `plan-saved` banner: 3s auto-dismiss, transient. `cleared` banner in Inspector: 3s auto-dismiss, transient.
+- Sticky banners (corruption, offline, quota) are unaffected — they stay until user acts on them.
+
+**3. Storage History: Oldest/Newest stuck at 4/19/2026, 8:00:00 PM (real bug)**  
+Root cause: `Session.end()` stored the session's `date` field as `_data.startTime.slice(0, 10)` — i.e., just the YYYY-MM-DD portion like `"2026-04-20"`. When the Inspector called `new Date("2026-04-20")`, JavaScript parsed it as **UTC midnight**. For a user in Atlanta (UTC−4 EDT in April), UTC midnight of April 20 is **8:00 PM on April 19 local time**. Every session recorded today showed the same shifted timestamp. Completed-session count was correct because it came from `.length`, not from parsing dates.
+
+Fix: Inspector now uses `session.startTime` (the full ISO timestamp, already stored in every record) for oldest/newest display, falling back to `.date` only if `startTime` is missing (older record compatibility).
+
+---
+
+*End of build log — last updated 2026-04-20 (patch 3).*
