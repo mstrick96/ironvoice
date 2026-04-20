@@ -1163,7 +1163,7 @@ body {
 <div class="screen screen-center" id="screen-welcome">
   <div class="logo">IRON<br>VOICE</div>
   <div class="logo-sub">Workout Assistant</div>
-  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 2</div>
+  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 2 · patch 3</div>
   <div class="welcome-plan-info" id="welcome-plan-info">Loading plan…</div>
   <button class="btn-primary" onclick="Session.start()">BEGIN WORKOUT</button>
   <div class="btn-row">
@@ -1822,6 +1822,9 @@ const UI = (() => {
   let activeScreen = null;
   function showScreen(name) {
     if (!SCREENS.includes(name)) { Diag.add('ui', `Unknown screen: ${name}`); return; }
+    // Clear transient info banners (e.g. "Plan saved") when navigating away —
+    // they belong to the context they were raised in and shouldn't follow the user.
+    clearTransientBanners();
     SCREENS.forEach(s => {
       const el = document.getElementById('screen-' + s);
       if (el) el.classList.toggle('active', s === name);
@@ -1845,27 +1848,56 @@ const UI = (() => {
     const badge = document.getElementById('state-badge');
     if (badge) badge.textContent = stateName;
   }
-  function raiseBanner(id, type, message, actionLabel, actionFn) {
+  function syncBannerOffsetNow() {
+    // Belt-and-braces: also fire a direct sync after rAF so iOS Safari
+    // has definitely completed layout before we read offsetHeight.
+    requestAnimationFrame(() => {
+      const area = document.getElementById('banner-area');
+      if (!area) return;
+      const h = area.offsetHeight;
+      document.documentElement.style.setProperty('--banner-h', h > 0 ? h + 'px' : '0px');
+    });
+  }
+  function raiseBanner(id, type, message, actionLabel, actionFn, options) {
+    const opts = options || {};
     const area = document.getElementById('banner-area');
     if (document.getElementById('banner-' + id)) return;
     const banner = document.createElement('div');
     banner.className = 'banner ' + type;
     banner.id = 'banner-' + id;
+    if (opts.transient) banner.dataset.transient = '1';
     const text = document.createElement('span');
     text.textContent = message;
     banner.appendChild(text);
     if (actionLabel) {
       const btn = document.createElement('button');
       btn.textContent = actionLabel;
-      btn.onclick = () => { if (actionFn) actionFn(); banner.remove(); };
+      btn.onclick = () => {
+        if (actionFn) actionFn();
+        banner.remove();
+        syncBannerOffsetNow();
+      };
       banner.appendChild(btn);
     } else {
       const dismiss = document.createElement('button');
       dismiss.textContent = 'Dismiss';
-      dismiss.onclick = () => banner.remove();
+      dismiss.onclick = () => { banner.remove(); syncBannerOffsetNow(); };
       banner.appendChild(dismiss);
     }
     area.appendChild(banner);
+    syncBannerOffsetNow();
+    if (opts.autoDismissMs && opts.autoDismissMs > 0) {
+      setTimeout(() => {
+        if (banner.parentNode) {
+          banner.remove();
+          syncBannerOffsetNow();
+        }
+      }, opts.autoDismissMs);
+    }
+  }
+  function clearTransientBanners() {
+    document.querySelectorAll('#banner-area .banner[data-transient]').forEach(b => b.remove());
+    syncBannerOffsetNow();
   }
   function raiseCorruptionBanner(keyName) {
     raiseBanner('corrupt-' + keyName, 'warn',
@@ -1882,7 +1914,7 @@ const UI = (() => {
   }
   function clearBanner(id) { const el = document.getElementById('banner-' + id); if (el) el.remove(); }
   function getActiveScreen() { return activeScreen; }
-  return { showScreen, refreshWelcome, reflectState, raiseBanner, raiseCorruptionBanner, raiseQuotaBanner, raiseOfflineBanner, clearBanner, getActiveScreen };
+  return { showScreen, refreshWelcome, reflectState, raiseBanner, raiseCorruptionBanner, raiseQuotaBanner, raiseOfflineBanner, clearBanner, clearTransientBanners, getActiveScreen };
 })();
 
 // ═══════════════════════════════════════════════════════════════
@@ -2056,7 +2088,8 @@ const Session = (() => {
     // Clear any existing plan-change banner before raising new one
     UI.clearBanner('plan-change');
     UI.raiseBanner('plan-change', 'info',
-      `${ex.name}: ${field} updated for next time.`, 'Dismiss', null);
+      `${ex.name}: ${field} updated for next time.`, 'Dismiss', null,
+      { transient: true, autoDismissMs: 4000 });
   }
 
   function markNoteSeen(exId) {
@@ -2523,7 +2556,8 @@ const PlanEditor = (() => {
     if (_openExId) _collectForm(_openExId);
     Storage.saveKey('plan', _workingPlan);
     Diag.add('plan', 'Plan saved via editor');
-    UI.raiseBanner('plan-saved', 'info', 'Plan saved.', 'Dismiss', null);
+    UI.raiseBanner('plan-saved', 'info', 'Plan saved.', 'Dismiss', null,
+      { transient: true, autoDismissMs: 3000 });
     UI.showScreen('welcome');
   }
 
@@ -2784,8 +2818,13 @@ const Inspector = (() => {
       document.getElementById('insp-oldest').textContent = '—';
       document.getElementById('insp-newest').textContent = '—';
     } else {
-      document.getElementById('insp-oldest').textContent = formatDate(history.sessions[0].date);
-      document.getElementById('insp-newest').textContent = formatDate(history.sessions[count - 1].date);
+      // Use the full ISO startTime when present. Falling back to `date`
+      // (which is only YYYY-MM-DD) parses as UTC midnight and shifts
+      // west-of-UTC users back to 8 PM the previous day.
+      const oldest = history.sessions[0];
+      const newest = history.sessions[count - 1];
+      document.getElementById('insp-oldest').textContent = formatDate(oldest.startTime || oldest.date);
+      document.getElementById('insp-newest').textContent = formatDate(newest.startTime || newest.date);
     }
     document.getElementById('insp-lastexport').textContent = formatDate(settings.lastExportDate);
     document.getElementById('insp-lastbackup').textContent = formatDate(settings.lastBackupConfirmedDate);
@@ -2816,7 +2855,8 @@ const Inspector = (() => {
     Diag.add('storage', 'History cleared by user');
     cancelClear();
     refresh();
-    UI.raiseBanner('cleared', 'info', 'History cleared.', 'Dismiss', null);
+    UI.raiseBanner('cleared', 'info', 'History cleared.', 'Dismiss', null,
+      { transient: true, autoDismissMs: 3000 });
   }
   return { refresh, showRawJson, requestClearHistory, cancelClear, doClear };
 })();
