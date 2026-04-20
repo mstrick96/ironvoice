@@ -31,7 +31,7 @@ Each step produces a testable artifact. Do not proceed to the next step until th
 | Step | Name | Status |
 |------|------|--------|
 | 1 | Skeleton + storage architecture | 🟢 Complete |
-| 2 | State machine + UI shell | 🟡 Ready to test |
+| 2 | State machine + UI shell | 🟡 In progress — bug fixes applied |
 | 3 | Voice loop (Layer 1 wake word + basic commands) | ⚪ Not started |
 | 4 | Full command grammar (Layer 2) | ⚪ Not started |
 | 5 | Layer 3 intent matching | ⚪ Not started |
@@ -277,3 +277,17 @@ The spec is fixed. The build log is the running record. Claude will read all thr
 ---
 
 *End of build log — last updated 2026-04-19 (Step 2 code produced, awaiting device test).*
+
+### 2026-04-19 — Step 2 bug fixes (patch 1)
+
+**Bug 1 fixed — Banner overlapping header:**
+Root cause: `#banner-area` was a non-positioned div in normal document flow. Screens use `position: absolute; inset: 0; z-index: 10`, which covers the full viewport. The `.banner` children had `position: relative; z-index: 20`, but z-index of a child only creates stacking context relative to its positioned ancestor — and `#banner-area` was not positioned, so screens always won.
+Fix: Added `position: fixed; top: 0; left: 0; right: 0; z-index: 2000; pointer-events: none` inline on `#banner-area`. Added `pointer-events: auto` to `.banner` so dismiss/action buttons still respond to taps. Banners now float above all screens and overlays.
+
+**Bug 2 fixed — No escape route from workout screen:**
+Problem: The only exit from the workout screen was END → confirmation → summary → home, which forces a session-ending flow even if the user accidentally tapped Begin Workout or wants to visit the Plan Editor mid-session.
+Fix: Added a small `⌂ HOME` button below the "IRON VOICE" brand text in the workout header. Two behaviors:
+- If **no sets have been logged**: exits silently and immediately, discarding the session from localStorage (nothing to preserve).
+- If **sets have been logged**: shows a confirmation overlay ("Session is saved and can be resumed") with Keep Going / Go to Home. Choosing Go to Home leaves the session in localStorage intact — next launch will detect it and show the Resume screen.
+
+*End of build log — last updated 2026-04-19 (Step 2 patch 1).*
