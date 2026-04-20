@@ -443,6 +443,39 @@ body {
   text-decoration: underline;
   text-decoration-color: var(--text-3);
 }
+.add-set-btn {
+  margin-top: 8px;
+  padding: 8px 18px;
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  text-transform: uppercase;
+}
+.add-set-btn:active { background: var(--accent-dim); }
+.save-sets-btn {
+  margin-top: 6px;
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--text-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  -webkit-appearance: none;
+}
+.save-sets-btn.saved {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+.save-sets-btn:active { background: var(--surface-2); }
 /* Coaching note */
 .coaching-note {
   font-size: 12px;
@@ -1163,7 +1196,7 @@ body {
 <div class="screen screen-center" id="screen-welcome">
   <div class="logo">IRON<br>VOICE</div>
   <div class="logo-sub">Workout Assistant</div>
-  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 2 · patch 3</div>
+  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 2 · patch 4</div>
   <div class="welcome-plan-info" id="welcome-plan-info">Loading plan…</div>
   <button class="btn-primary" onclick="Session.start()">BEGIN WORKOUT</button>
   <div class="btn-row">
@@ -1968,6 +2001,8 @@ const Session = (() => {
       todayOverrides: {},
       noteSeenIds: [],
       pendingPlanChanges: [],
+      extraSetsToday: {},  // { exId: count of extra dots added this session }
+      capWarningShown: false,  // one-time 3+ sets warning per session
       sessionNote: '',
       lastActivityTimestamp: Date.now()
     };
@@ -1991,6 +2026,8 @@ const Session = (() => {
     // Patch missing fields from older sessions (forward compat)
     if (!_data.todayOverrides) _data.todayOverrides = {};
     if (!_data.noteSeenIds) _data.noteSeenIds = [];
+    if (!_data.extraSetsToday) _data.extraSetsToday = {};
+    if (typeof _data.capWarningShown !== 'boolean') _data.capWarningShown = false;
     heartbeat();
     Diag.add('session', 'Session resumed', { id: _data.id, index: _data.currentIndex });
     WorkoutUI.render();
@@ -2092,6 +2129,77 @@ const Session = (() => {
       { transient: true, autoDismissMs: 4000 });
   }
 
+  // Effective planned-set count = plan sets + extra dots added this session.
+  // Used when rendering the workout card so extra dots persist across navigation.
+  function getEffectivePlannedSets(exId) {
+    if (!_data) return 1;
+    const ex = _plan ? _plan.exercises.find(e => e.id === exId) : null;
+    const planned = ex ? (ex.sets || 1) : 1;
+    const extra = (_data.extraSetsToday || {})[exId] || 0;
+    return planned + extra;
+  }
+
+  // Add an extra set dot today only (not saved to plan).
+  // Called by the ADD SET button once all planned+extra dots are logged.
+  function addSetDotOnly() {
+    if (!_data) return;
+    const ex = getCurrentExercise();
+    if (!ex) return;
+    if (ex.type === 'timed') return; // add-set not applicable to timed exercises
+    if (!_data.extraSetsToday) _data.extraSetsToday = {};
+    _data.extraSetsToday[ex.id] = (_data.extraSetsToday[ex.id] || 0) + 1;
+    // If we added a plan-change for sets previously and now have more dots than it covered,
+    // update/replace so save-for-next-time tap below matches what's on screen.
+    heartbeat();
+    WorkoutUI.render();
+    Diag.add('session', `Extra set dot added (today only): ${ex.id} → ${_data.extraSetsToday[ex.id]}`);
+    // Guardrail: one-time warning the first time session total hits >=4 sets anywhere.
+    const totalDotsNow = getEffectivePlannedSets(ex.id);
+    if (totalDotsNow >= 4 && !_data.capWarningShown) {
+      _data.capWarningShown = true;
+      heartbeat();
+      UI.raiseBanner('set-cap', 'info',
+        'Most guidelines cap strength training at 2–3 sets for your age group. Consider increasing weight on your next progression instead.',
+        'Got it', null,
+        { transient: true, autoDismissMs: 10000 });
+    }
+  }
+
+  // Save current effective set count (planned + extras) as the new plan set count
+  // for next time. Coalesces: repeated taps overwrite the prior pending change
+  // with the current count.
+  function saveSetCountForNextTime() {
+    if (!_data) return;
+    const ex = getCurrentExercise();
+    if (!ex) return;
+    if (ex.type === 'timed') return;
+    const newCount = getEffectivePlannedSets(ex.id);
+    // Remove any prior queued sets-change for this exercise — coalesce.
+    _data.pendingPlanChanges = _data.pendingPlanChanges.filter(
+      ch => !(ch.exId === ex.id && ch.field === 'sets')
+    );
+    _data.pendingPlanChanges.push({
+      exId: ex.id, field: 'sets', value: newCount, timestamp: new Date().toISOString()
+    });
+    heartbeat();
+    WorkoutUI.render();
+    Diag.add('session', `Queued plan change: ${ex.id}.sets = ${newCount}`);
+    UI.clearBanner('plan-change');
+    UI.raiseBanner('plan-change', 'info',
+      `${ex.name}: set count will be ${newCount} next time.`, 'Dismiss', null,
+      { transient: true, autoDismissMs: 4000 });
+  }
+
+  // Returns true if this exercise already has a pending "sets" plan change
+  // matching the current effective dot count (for button styling/labeling).
+  function isSetCountSavedForNextTime(exId) {
+    if (!_data) return false;
+    const current = getEffectivePlannedSets(exId);
+    return _data.pendingPlanChanges.some(
+      ch => ch.exId === exId && ch.field === 'sets' && ch.value === current
+    );
+  }
+
   function markNoteSeen(exId) {
     if (!_data) return;
     if (!_data.noteSeenIds.includes(exId)) {
@@ -2156,6 +2264,8 @@ const Session = (() => {
   return {
     start, resume, startFresh, navigate, goTo,
     logSet, undoLastSet, applyTodayOverride, queuePlanChange, markNoteSeen, end,
+    addSetDotOnly, saveSetCountForNextTime,
+    getEffectivePlannedSets, isSetCountSavedForNextTime,
     getCurrentExercise, getEffectiveValue, getSetCount, isExerciseDone,
     heartbeat, getData, getPlan
   };
@@ -2234,8 +2344,9 @@ const WorkoutUI = (() => {
       return;
     }
 
-    // Strength: set dots
-    const plannedSets = Session.getEffectiveValue(ex.id, 'sets') || 1;
+    // Strength: set dots. Effective planned sets = plan sets + any extras
+    // added via ADD SET this session.
+    const plannedSets = Session.getEffectivePlannedSets(ex.id);
     const totalDots = Math.max(plannedSets, setCount);
     let html = `<div class="set-dots-label">TAP DOT TO LOG SET</div><div class="set-dots">`;
     for (let i = 0; i < totalDots; i++) {
@@ -2245,6 +2356,20 @@ const WorkoutUI = (() => {
     html += `</div>`;
     if (setCount > 0) {
       html += `<button class="undo-btn" onclick="Session.undoLastSet()">↩ Undo Last Set</button>`;
+    }
+    // ADD SET button: visible only when all currently-shown dots are logged.
+    // This prevents accidental extra sets when the plan isn't complete yet.
+    if (setCount >= plannedSets) {
+      html += `<button class="add-set-btn" onclick="Session.addSetDotOnly()">+ ADD SET</button>`;
+    }
+    // Save-for-Next-Time: visible only once an extra dot has been added this
+    // session. Lets the user promote the current dot count to the saved plan.
+    const planEx = Session.getPlan() ? Session.getPlan().exercises.find(e => e.id === ex.id) : null;
+    const basePlanSets = planEx ? (planEx.sets || 1) : 1;
+    if (plannedSets > basePlanSets) {
+      const saved = Session.isSetCountSavedForNextTime(ex.id);
+      const label = saved ? `✓ ${plannedSets} sets saved for next time` : `Save ${plannedSets} sets for next time`;
+      html += `<button class="save-sets-btn${saved ? ' saved' : ''}" onclick="Session.saveSetCountForNextTime()">${label}</button>`;
     }
     container.innerHTML = html;
   }
@@ -2520,6 +2645,20 @@ const Summary = (() => {
     }
 
     UI.showScreen('summary');
+
+    // Progression-prompt guardrail: if the user saved NEW set counts on 3+
+    // distinct exercises in one session, nudge them toward the next
+    // progression step (increase weight rather than keep stacking sets).
+    // Raised AFTER showScreen() because showScreen clears transient banners.
+    const setsChangesExIds = new Set(
+      changes.filter(ch => ch.field === 'sets').map(ch => ch.exId)
+    );
+    if (setsChangesExIds.size >= 3) {
+      UI.raiseBanner('progression-tip', 'info',
+        `You increased sets on ${setsChangesExIds.size} exercises today. When you're ready for the next progression step, consider increasing weight and dropping back to 1 set.`,
+        'Thanks', null,
+        { transient: true, autoDismissMs: 12000 });
+    }
   }
 
   function done() {
