@@ -165,6 +165,7 @@ body {
    BANNER STYLES
    ══════════════════════════════════════════════════════════════ */
 .banner {
+  pointer-events: auto;
   padding: 10px 16px;
   padding-top: max(10px, env(safe-area-inset-top));
   font-size: 13px;
@@ -246,11 +247,31 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .workout-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.workout-brand > span {
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 3px;
   color: var(--accent);
 }
+.workout-exit-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  color: var(--text-3);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 2px 7px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  text-transform: uppercase;
+}
+.workout-exit-btn:active { background: var(--surface-2); color: var(--text-2); }
 .workout-progress {
   font-size: 12px;
   color: var(--text-3);
@@ -1134,7 +1155,7 @@ body {
 <!-- ═══════════════════════════════════════════════════════════════
      BANNER AREA
      ═══════════════════════════════════════════════════════════════ -->
-<div id="banner-area"></div>
+<div id="banner-area" style="position:fixed;top:0;left:0;right:0;z-index:2000;pointer-events:none;"></div>
 
 <!-- ═══════════════════════════════════════════════════════════════
      SCREEN: Welcome
@@ -1168,7 +1189,10 @@ body {
 <div class="screen" id="screen-workout">
   <!-- Header -->
   <div class="workout-header">
-    <div class="workout-brand">IRON VOICE</div>
+    <div class="workout-brand">
+      <span>IRON VOICE</span>
+      <button class="workout-exit-btn" onclick="WorkoutUI.exitToHome()" title="Return to Home">⌂ HOME</button>
+    </div>
     <div class="workout-progress" id="workout-progress">Exercise 1 of 13</div>
     <div class="voice-status-badge" id="voice-status-badge">STEP 2 · TAP</div>
   </div>
@@ -1419,6 +1443,20 @@ body {
     <div class="end-card-actions">
       <button class="end-keep-going" onclick="EndConfirm.cancel()">Keep Going</button>
       <button class="end-confirm-btn" onclick="EndConfirm.confirm()">Yes, End Workout</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     EXIT TO HOME OVERLAY
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="end-overlay" id="exit-home-overlay">
+  <div class="end-card">
+    <div class="end-card-title">Return to Home?</div>
+    <div class="end-card-stats" id="exit-home-stats"></div>
+    <div class="end-card-actions">
+      <button class="end-keep-going" onclick="WorkoutUI.cancelExitToHome()">Keep Going</button>
+      <button class="end-confirm-btn" onclick="WorkoutUI.confirmExitToHome()">Go to Home</button>
     </div>
   </div>
 </div>
@@ -2330,9 +2368,42 @@ const WorkoutUI = (() => {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  function exitToHome() {
+    const sessionData = Session.getData();
+    const hasEntries = sessionData && sessionData.logEntries && sessionData.logEntries.length > 0;
+    if (!hasEntries) {
+      // Nothing logged — silently discard the session and go home
+      Storage.saveKey('session', null);
+      UI.showScreen('welcome');
+      UI.refreshWelcome();
+      return;
+    }
+    // Sets have been logged — confirm before leaving
+    const plan = Session.getPlan();
+    const uniqueDone = new Set(sessionData.logEntries.map(e => e.exId)).size;
+    const total = plan ? plan.exercises.length : '?';
+    const startMs = new Date(sessionData.startTime).getTime();
+    const elapsedMin = Math.max(0, Math.round((Date.now() - startMs) / 60000));
+    document.getElementById('exit-home-stats').innerHTML =
+      `${uniqueDone} of ${total} exercises logged · ${elapsedMin} min<br>Session is saved and can be resumed.`;
+    document.getElementById('exit-home-overlay').classList.add('active');
+  }
+
+  function cancelExitToHome() {
+    document.getElementById('exit-home-overlay').classList.remove('active');
+  }
+
+  function confirmExitToHome() {
+    document.getElementById('exit-home-overlay').classList.remove('active');
+    // Session stays in localStorage as-is — user can resume next time
+    UI.showScreen('welcome');
+    UI.refreshWelcome();
+  }
+
   return {
     render, openEditSheet, closeEditSheet, applyEdit,
-    handleSetDot, handleDoneBtn, showLoggedConfirm, switchTab
+    handleSetDot, handleDoneBtn, showLoggedConfirm, switchTab,
+    exitToHome, cancelExitToHome, confirmExitToHome
   };
 })();
 
