@@ -1162,6 +1162,75 @@ body {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   VOICE TESTER (patch 1)
+   ══════════════════════════════════════════════════════════════ */
+.voice-tester-group-label {
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: 14px 0 6px 4px;
+}
+.voice-tester-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.voice-tester-row.selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+.voice-tester-name {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 500;
+  word-break: break-word;
+}
+.voice-tester-lang {
+  font-size: 10px;
+  color: var(--text-3);
+  margin-top: 2px;
+  letter-spacing: 0.5px;
+}
+.voice-tester-play-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  text-transform: uppercase;
+}
+.voice-tester-play-btn:active { background: var(--surface-2); }
+.voice-tester-use-btn {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  text-transform: uppercase;
+}
+.voice-tester-use-btn.selected {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+
+/* ══════════════════════════════════════════════════════════════
    CONFIRM DIALOG (clear history)
    ══════════════════════════════════════════════════════════════ */
 .confirm-overlay {
@@ -1246,12 +1315,15 @@ body {
 <div class="screen screen-center" id="screen-welcome">
   <div class="logo">IRON<br>VOICE</div>
   <div class="logo-sub">Workout Assistant</div>
-  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 3 · patch 0</div>
+  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 3 · patch 1</div>
   <div class="welcome-plan-info" id="welcome-plan-info">Loading plan…</div>
   <button class="btn-primary" onclick="Session.start()">BEGIN WORKOUT</button>
   <div class="btn-row">
     <button class="btn-sec" onclick="PlanEditor.open()">Edit Plan</button>
     <button class="btn-sec" onclick="UI.showScreen('storage')">Storage</button>
+  </div>
+  <div class="btn-row" style="margin-top:8px">
+    <button class="btn-sec" onclick="VoiceTester.open()">Voice Tester</button>
   </div>
 </div>
 
@@ -1391,6 +1463,21 @@ body {
     <button class="btn-primary" style="margin-bottom:8px" onclick="PlanEditor.close()">Done — Save Plan</button>
     <button class="btn-sec" onclick="PlanEditor.cancel()">Cancel Changes</button>
   </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SCREEN: Voice Tester (patch 1 diagnostic)
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-voice-tester">
+  <div class="inspector-title">VOICE TESTER</div>
+  <div style="padding:0 4px 12px 4px;color:var(--text-2);font-size:13px;line-height:1.45">
+    Tap a voice to hear a sample. Tap <b>Use this voice</b> to set it as the app's preferred voice for workouts. Your choice persists across sessions.
+  </div>
+  <div id="voice-tester-current" style="padding:8px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;font-size:13px">
+    Current: <span id="voice-tester-current-name" style="color:var(--accent);font-weight:600">—</span>
+  </div>
+  <div id="voice-tester-list"></div>
+  <button class="inspector-back" onclick="VoiceTester.close()">← Back</button>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -1906,7 +1993,7 @@ const State = (() => {
 // UI (screens and banners)
 // ═══════════════════════════════════════════════════════════════
 const UI = (() => {
-  const SCREENS = ['welcome', 'resume', 'workout', 'summary', 'plan-editor', 'storage', 'pwa', 'https'];
+  const SCREENS = ['welcome', 'resume', 'workout', 'summary', 'plan-editor', 'voice-tester', 'storage', 'pwa', 'https'];
   let activeScreen = null;
   function showScreen(name) {
     if (!SCREENS.includes(name)) { Diag.add('ui', `Unknown screen: ${name}`); return; }
@@ -2117,13 +2204,27 @@ const Session = (() => {
     }
   }
 
+  // Build a spoken-exercise description. Used by navigate() and the
+  // intro. Note the Voice module's 'repeat' command uses its own
+  // copy-of-this for decoupling — duplication is deliberate for now.
+  function _describeForSpeech(ex) {
+    if (ex.type === 'timed') {
+      const lvl = getEffectiveValue(ex.id, 'level');
+      const dur = getEffectiveValue(ex.id, 'duration');
+      return `${ex.name}. Level ${lvl}. ${dur} minutes.`;
+    }
+    const sets   = getEffectivePlannedSets(ex.id);
+    const reps   = getEffectiveValue(ex.id, 'reps');
+    const weight = getEffectiveValue(ex.id, 'weight');
+    const setsWord = sets === 1 ? 'set' : 'sets';
+    // "reps" and "lbs" abbreviations are normalized in Voice.say().
+    return `${ex.name}. ${sets} ${setsWord}, ${reps} reps at ${weight} pounds.`;
+  }
+
   // Session-level helper that talks to Voice. Kept in Session module
   // because the intro content is session-domain, not voice-domain.
   function _speakIntro(ex, total) {
-    const first = ex.type === 'timed'
-      ? `${ex.name}, level ${Session.getEffectiveValue(ex.id, 'level')}, ${Session.getEffectiveValue(ex.id, 'duration')} minutes`
-      : ex.name;
-    const msg = `Iron Voice ready. ${total} exercises today. Starting with ${first}.`;
+    const msg = `Iron Voice ready. ${total} exercises today. Starting with ${_describeForSpeech(ex)}`;
     Voice.say(msg);
   }
 
@@ -2168,6 +2269,13 @@ const Session = (() => {
     heartbeat();
     WorkoutUI.render();
     Diag.add('session', `Navigate to index ${newIdx}`);
+    // Spec §6.2: announce each exercise on arrival. Applies whether
+    // navigation came from voice ("Iron next") or tap (PREV/NEXT).
+    const ex = getCurrentExercise();
+    if (ex) {
+      const intro = delta > 0 ? 'Moving to ' : 'Going back to ';
+      Voice.say(intro + _describeForSpeech(ex));
+    }
   }
 
   function goTo(index) {
@@ -2530,9 +2638,11 @@ const Voice = (() => {
           _speak('That was the last exercise.');
           return;
         }
+        // Session.navigate announces the destination itself (spec §6.2).
+        // The parser's job here is just to move. We still need to
+        // return to LISTENING after — navigate() calls Voice.say()
+        // which handles that via onend.
         Session.navigate(1);
-        const ex = Session.getCurrentExercise();
-        _speak(`Moving to ${ex.name}.`);
         return;
       }
       case 'previous': {
@@ -2543,8 +2653,6 @@ const Voice = (() => {
           return;
         }
         Session.navigate(-1);
-        const ex = Session.getCurrentExercise();
-        _speak(`Going back to ${ex.name}.`);
         return;
       }
       case 'repeat': {
@@ -2584,26 +2692,72 @@ const Voice = (() => {
 
   // ───── TTS ─────────────────────────────────────────────────────
 
+  function _getSavedVoiceName() {
+    try {
+      const settings = Storage.loadKey('settings') || {};
+      return settings.preferredVoiceName || null;
+    } catch(e) { return null; }
+  }
+
+  function _saveVoiceName(name) {
+    try {
+      const settings = Storage.loadKey('settings') || {};
+      settings.preferredVoiceName = name;
+      Storage.saveKey('settings', settings);
+    } catch(e) {}
+  }
+
   function _pickVoice() {
     const voices = window.speechSynthesis.getVoices() || [];
     if (voices.length === 0) return null;
-    const byName = name => voices.find(v => v.name === name);
+
+    // 1. User's explicit choice from Voice Tester wins over everything.
+    const savedName = _getSavedVoiceName();
+    if (savedName) {
+      const chosen = voices.find(v => v.name === savedName);
+      if (chosen) return chosen;
+      // Saved name not present (voice removed or different device) —
+      // fall through to automatic selection but log it.
+      Diag.add('voice', `Saved voice "${savedName}" not found; picking fallback`);
+    }
+
+    // 2. Automatic quality-scored selection. Prefer high-quality neural
+    //    voices (tagged Enhanced / Premium / Siri in their name) over
+    //    compact voices, and localService=false (server-rendered) over
+    //    localService=true (compact). iOS Safari only exposes a subset
+    //    of installed voices — this tier list works with what Safari
+    //    actually returns on iOS 16+ devices.
     const knownFemale = new Set(['Samantha', 'Victoria', 'Susan', 'Allison', 'Ava', 'Karen', 'Zoe']);
-    const candidates = [
-      byName('Alex'),
-      byName('Aaron'),
-      byName('Fred'),
-      voices.find(v => v.lang === 'en-US' && !knownFemale.has(v.name)),
-      voices.find(v => v.lang === 'en-US'),
-      voices.find(v => /^en[-_]/.test(v.lang))
-    ];
-    for (const v of candidates) if (v) return v;
+    function score(v) {
+      if (!v.lang || !/^en/i.test(v.lang)) return -1;
+      let s = 0;
+      const n = v.name || '';
+      // Quality tier signals — Apple's naming conventions.
+      if (/siri/i.test(n)) s += 100;
+      if (/premium/i.test(n)) s += 80;
+      if (/enhanced/i.test(n)) s += 60;
+      if (v.localService === false) s += 30;
+      // Locale preference — US English preferred.
+      if (/^en-US$/i.test(v.lang)) s += 20;
+      else if (/^en[-_]/i.test(v.lang)) s += 5;
+      // Male voice preference per spec (soft; doesn't drop female voices).
+      if (!knownFemale.has(n.split(' ')[0])) s += 3;
+      return s;
+    }
+    const scored = voices
+      .map(v => ({ v, s: score(v) }))
+      .filter(x => x.s >= 0)
+      .sort((a, b) => b.s - a.s);
+    if (scored.length > 0) return scored[0].v;
     return voices[0] || null;
   }
 
   function _ensureVoice() {
     if (_preferredVoice) return;
     _preferredVoice = _pickVoice();
+    if (_preferredVoice) {
+      Diag.add('voice', `Voice selected: ${_preferredVoice.name} (${_preferredVoice.lang}, local=${_preferredVoice.localService})`);
+    }
     if (!_preferredVoice && window.speechSynthesis && 'onvoiceschanged' in window.speechSynthesis) {
       window.speechSynthesis.onvoiceschanged = () => {
         if (!_preferredVoice) {
@@ -2613,16 +2767,60 @@ const Voice = (() => {
           }
         }
       };
-    } else if (_preferredVoice) {
-      Diag.add('voice', `Voice selected: ${_preferredVoice.name}`);
     }
+  }
+
+  // Public — called by VoiceTester when user picks a voice.
+  function setPreferredVoiceByName(name) {
+    const voices = window.speechSynthesis.getVoices() || [];
+    const v = voices.find(x => x.name === name);
+    if (v) {
+      _preferredVoice = v;
+      _saveVoiceName(name);
+      Diag.add('voice', `Preferred voice set by user: ${name}`);
+      return true;
+    }
+    return false;
+  }
+
+  function getPreferredVoiceName() {
+    return _preferredVoice ? _preferredVoice.name : null;
+  }
+
+  function getAllVoices() {
+    return (window.speechSynthesis.getVoices() || []).slice();
+  }
+
+  // Normalize abbreviations and numbers that iOS TTS mangles.
+  // REGRESSION HAZARD: iOS Safari expands "reps" to "representatives"
+  // and may mis-speak other short tokens. Fix must happen before the
+  // utterance text is passed to speechSynthesis.speak().
+  //
+  // Rules are whole-word only — we don't want "representative" (if it
+  // ever appears) to mutate. Applied in order; later rules can compose
+  // with earlier ones.
+  function _normalizeForSpeech(text) {
+    if (!text) return text;
+    let s = String(text);
+    // Whole-word abbreviation expansions. \b handles spaces, commas,
+    // periods, and end-of-string.
+    s = s.replace(/\breps\b/gi, 'repetitions');
+    s = s.replace(/\brep\b/gi, 'repetition');
+    s = s.replace(/\blbs\b/gi, 'pounds');
+    s = s.replace(/\blb\b/gi, 'pound');
+    s = s.replace(/\bmin\b/gi, 'minutes');
+    s = s.replace(/\bsec\b/gi, 'seconds');
+    // Bike levels written as "L1" / "L2" etc.
+    s = s.replace(/\bL(\d+)\b/g, 'level $1');
+    return s;
   }
 
   function _speak(text, onDone) {
     if (!window.speechSynthesis) { if (onDone) onDone(); return; }
+    const spoken = _normalizeForSpeech(text);
     _stopRecognizer();
-    State.transition(STATES.SPEAKING, `speak: ${text.slice(0, 40)}`);
-    const u = new SpeechSynthesisUtterance(text);
+    State.transition(STATES.SPEAKING, `speak: ${spoken.slice(0, 40)}`);
+    const u = new SpeechSynthesisUtterance(spoken);
     if (_preferredVoice) u.voice = _preferredVoice;
     u.rate = 1.0;
     u.pitch = 1.0;
@@ -2722,7 +2920,12 @@ const Voice = (() => {
       Diag.add('voice', 'Recognizer onend', { wantListening: _wantListening });
       // Auto-restart loop — the only reliable iOS pattern (spec §3.2).
       if (_wantListening && State.get() === STATES.LISTENING) {
-        setTimeout(() => _startRecognizer(), 100);
+        // iOS Safari needs ~250-300ms to fully release the mic between
+        // single-shot recognitions. Calling start() too quickly causes
+        // silent rejection — recognizer appears active but no audio
+        // reaches the handler. 300ms gives the most reliable restart
+        // at the cost of slightly slower perceived responsiveness.
+        setTimeout(() => _startRecognizer(), 300);
       }
     };
     r.onerror = (e) => {
@@ -2770,16 +2973,21 @@ const Voice = (() => {
     return r;
   }
 
-  function _startRecognizer() {
+  function _startRecognizer(retryCount) {
     if (!_rec) _rec = _buildRecognizer();
     if (!_rec) return;
     if (_recActive) return;
     try {
       _rec.start();
     } catch (e) {
-      // Safari throws if start() is called while already running —
-      // onend will trigger a restart.
-      Diag.add('voice', 'recognizer.start() threw', String(e));
+      const msg = String(e);
+      Diag.add('voice', 'recognizer.start() threw', msg);
+      // InvalidStateError means the recognizer hasn't fully released
+      // from the previous session yet. Retry once after a longer delay.
+      const isInvalidState = /InvalidStateError|already started/i.test(msg);
+      if (isInvalidState && (retryCount || 0) < 2) {
+        setTimeout(() => _startRecognizer((retryCount || 0) + 1), 500);
+      }
     }
   }
 
@@ -2885,9 +3093,134 @@ const Voice = (() => {
   return {
     initOnSessionStart, shutdown, handleBadgeTap, restart, say,
     interruptSpeech, onVisibilityHidden, onVisibilityVisible,
+    setPreferredVoiceByName, getPreferredVoiceName, getAllVoices,
     __matchWakeWord: _matchWakeWord,
     __parseCommand: _parseCommand
   };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// VOICE TESTER (patch 1 diagnostic)
+// ═══════════════════════════════════════════════════════════════
+// Standalone screen that enumerates every voice iOS exposes to
+// Safari on this device, lets the user sample each, and lets them
+// lock in a preferred voice. Independent of the workout flow.
+const VoiceTester = (() => {
+  // Test phrase uses the actual app vocabulary — abbreviations are
+  // normalized via Voice's internal layer, so "reps" is said correctly.
+  const SAMPLE_TEXT = "Moving to Chest Press. One set, twenty reps at forty pounds.";
+
+  function open() {
+    _render();
+    UI.showScreen('voice-tester');
+    // iOS sometimes populates voices asynchronously on first load.
+    // Re-render after a short delay if the list is still empty.
+    setTimeout(() => {
+      const current = Voice.getAllVoices();
+      if (current.length === 0) _render();
+    }, 500);
+  }
+
+  function close() {
+    try { window.speechSynthesis.cancel(); } catch(e) {}
+    UI.showScreen('welcome');
+  }
+
+  function _render() {
+    const list = document.getElementById('voice-tester-list');
+    const currentSpan = document.getElementById('voice-tester-current-name');
+    if (!list || !currentSpan) return;
+
+    const voices = Voice.getAllVoices();
+    const selectedName = Voice.getPreferredVoiceName();
+    currentSpan.textContent = selectedName || 'auto-selected';
+
+    if (voices.length === 0) {
+      list.innerHTML = `<div style="padding:16px;text-align:center;color:var(--text-3)">
+        No voices available yet. iOS sometimes loads voices asynchronously —
+        try closing this screen and reopening it, or reload the page.
+      </div>`;
+      return;
+    }
+
+    // Group by language. English voices at the top.
+    const byLang = {};
+    for (const v of voices) {
+      const lang = v.lang || 'unknown';
+      if (!byLang[lang]) byLang[lang] = [];
+      byLang[lang].push(v);
+    }
+    const langs = Object.keys(byLang).sort((a, b) => {
+      const aEn = /^en/i.test(a) ? 0 : 1;
+      const bEn = /^en/i.test(b) ? 0 : 1;
+      if (aEn !== bEn) return aEn - bEn;
+      return a.localeCompare(b);
+    });
+
+    let html = '';
+    for (const lang of langs) {
+      html += `<div class="voice-tester-group-label">${_esc(lang)} · ${byLang[lang].length} voice${byLang[lang].length === 1 ? '' : 's'}</div>`;
+      for (const v of byLang[lang]) {
+        const isSelected = v.name === selectedName;
+        const tags = [];
+        if (v.localService === false) tags.push('remote');
+        if (v.default) tags.push('default');
+        const tagsHtml = tags.length ? ` <span style="color:var(--text-3);font-size:10px">(${tags.join(', ')})</span>` : '';
+        html += `
+          <div class="voice-tester-row${isSelected ? ' selected' : ''}">
+            <div style="flex:1;min-width:0">
+              <div class="voice-tester-name">${_esc(v.name)}${tagsHtml}</div>
+              <div class="voice-tester-lang">${_esc(v.lang)}</div>
+            </div>
+            <button class="voice-tester-play-btn"
+                    onclick="VoiceTester.play('${_escAttr(v.name)}')">▶ Play</button>
+            <button class="voice-tester-use-btn${isSelected ? ' selected' : ''}"
+                    onclick="VoiceTester.use('${_escAttr(v.name)}')">${isSelected ? '✓ Using' : 'Use'}</button>
+          </div>`;
+      }
+    }
+    list.innerHTML = html;
+  }
+
+  function play(name) {
+    try { window.speechSynthesis.cancel(); } catch(e) {}
+    const voices = Voice.getAllVoices();
+    const v = voices.find(x => x.name === name);
+    if (!v) return;
+    try {
+      const u = new SpeechSynthesisUtterance(SAMPLE_TEXT);
+      u.voice = v;
+      u.rate = 1.0;
+      u.pitch = 1.0;
+      u.volume = 1.0;
+      window.speechSynthesis.speak(u);
+      Diag.add('voice-tester', `Sampled ${name}`);
+    } catch(e) {
+      Diag.add('voice-tester', `Sample failed: ${String(e)}`);
+    }
+  }
+
+  function use(name) {
+    if (Voice.setPreferredVoiceByName(name)) {
+      UI.raiseBanner('voice-chosen', 'info',
+        `Voice set to ${name}. This will be used for all future workouts.`,
+        'OK', null, { transient: true, autoDismissMs: 4000 });
+      _render();
+    } else {
+      UI.raiseBanner('voice-chosen', 'err',
+        `Could not set voice to ${name}.`, 'Dismiss', null,
+        { transient: true, autoDismissMs: 4000 });
+    }
+  }
+
+  function _esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function _escAttr(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/'/g,"&#39;").replace(/"/g,'&quot;');
+  }
+
+  return { open, close, play, use };
 })();
 
 // ═══════════════════════════════════════════════════════════════
