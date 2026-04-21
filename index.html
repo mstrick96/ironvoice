@@ -240,23 +240,30 @@ body {
 }
 .workout-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 24px 8px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 20px 8px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
 }
-.workout-brand {
+.workout-header-row-top {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
 }
-.workout-brand > span {
+.workout-header-row-bot {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.workout-brand {
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 3px;
   color: var(--accent);
+  flex: 1;
+  text-align: center;
 }
 .workout-exit-btn {
   background: transparent;
@@ -266,10 +273,11 @@ body {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 1px;
-  padding: 2px 7px;
+  padding: 3px 8px;
   cursor: pointer;
   -webkit-appearance: none;
   text-transform: uppercase;
+  flex-shrink: 0;
 }
 .workout-exit-btn:active { background: var(--surface-2); color: var(--text-2); }
 .workout-progress {
@@ -277,6 +285,7 @@ body {
   color: var(--text-3);
   letter-spacing: 0.5px;
 }
+/* Voice status badge — live indicator wired to state machine in Step 3+ */
 .voice-status-badge {
   font-size: 9px;
   font-weight: 700;
@@ -287,6 +296,47 @@ body {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 3px 8px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  min-width: 88px;
+  justify-content: center;
+}
+.voice-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-3);
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.voice-status-badge.voice-listening {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.voice-status-badge.voice-listening .voice-status-dot {
+  background: var(--accent);
+  animation: voicePulse 1.4s ease-in-out infinite;
+}
+.voice-status-badge.voice-speaking {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+.voice-status-badge.voice-speaking .voice-status-dot { background: var(--accent); }
+.voice-status-badge.voice-processing .voice-status-dot { background: var(--text-2); }
+.voice-status-badge.voice-error {
+  color: var(--err);
+  border-color: var(--err);
+}
+.voice-status-badge.voice-error .voice-status-dot { background: var(--err); }
+.voice-status-badge.voice-idle .voice-status-dot { background: var(--text-3); }
+@keyframes voicePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
 }
 /* Workout main content — fills available height */
 .workout-body {
@@ -1196,7 +1246,7 @@ body {
 <div class="screen screen-center" id="screen-welcome">
   <div class="logo">IRON<br>VOICE</div>
   <div class="logo-sub">Workout Assistant</div>
-  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 2 · patch 4</div>
+  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 3 · patch 0</div>
   <div class="welcome-plan-info" id="welcome-plan-info">Loading plan…</div>
   <button class="btn-primary" onclick="Session.start()">BEGIN WORKOUT</button>
   <div class="btn-row">
@@ -1222,12 +1272,17 @@ body {
 <div class="screen" id="screen-workout">
   <!-- Header -->
   <div class="workout-header">
-    <div class="workout-brand">
-      <span>IRON VOICE</span>
+    <div class="workout-header-row-top">
       <button class="workout-exit-btn" onclick="WorkoutUI.exitToHome()" title="Return to Home">⌂ HOME</button>
+      <div class="workout-brand">IRON VOICE</div>
+      <div class="voice-status-badge" id="voice-status-badge" onclick="Voice.handleBadgeTap()">
+        <span class="voice-status-dot" id="voice-status-dot"></span>
+        <span class="voice-status-text" id="voice-status-text">—</span>
+      </div>
     </div>
-    <div class="workout-progress" id="workout-progress">Exercise 1 of 13</div>
-    <div class="voice-status-badge" id="voice-status-badge">STEP 2 · TAP</div>
+    <div class="workout-header-row-bot">
+      <div class="workout-progress" id="workout-progress">Exercise 1 of 13</div>
+    </div>
   </div>
 
   <div class="workout-body">
@@ -1880,6 +1935,36 @@ const UI = (() => {
   function reflectState(stateName) {
     const badge = document.getElementById('state-badge');
     if (badge) badge.textContent = stateName;
+    // Voice status badge in workout header — Step 3+.
+    const voiceBadge = document.getElementById('voice-status-badge');
+    const voiceText = document.getElementById('voice-status-text');
+    if (voiceBadge && voiceText) {
+      voiceBadge.classList.remove('voice-listening', 'voice-speaking',
+        'voice-processing', 'voice-error', 'voice-idle');
+      switch (stateName) {
+        case 'LISTENING':
+          voiceBadge.classList.add('voice-listening');
+          voiceText.textContent = 'Listening';
+          break;
+        case 'SPEAKING':
+          voiceBadge.classList.add('voice-speaking');
+          voiceText.textContent = 'Speaking';
+          break;
+        case 'PROCESSING':
+          voiceBadge.classList.add('voice-processing');
+          voiceText.textContent = 'Processing';
+          break;
+        case 'ERROR':
+          voiceBadge.classList.add('voice-error');
+          voiceText.textContent = 'Audio Off';
+          break;
+        case 'IDLE':
+        default:
+          voiceBadge.classList.add('voice-idle');
+          voiceText.textContent = 'Paused';
+          break;
+      }
+    }
   }
   function syncBannerOffsetNow() {
     // Belt-and-braces: also fire a direct sync after rAF so iOS Safari
@@ -2015,7 +2100,31 @@ const Session = (() => {
     Diag.add('session', 'Session started', { id: _data.id });
     WorkoutUI.render();
     UI.showScreen('workout');
-    State.transition(STATES.IDLE, 'session started - voice in Step 3');
+    // Voice comes up in LISTENING; Voice.initOnSessionStart handles
+    // the state transition from IDLE. Must be called synchronously
+    // from the user-gesture click handler for iOS mic permission.
+    Voice.initOnSessionStart();
+    // Optional intro: announce the first exercise. Spec §6.1.
+    const ex = getCurrentExercise();
+    if (ex) {
+      // Small timeout so the state transition to LISTENING lands first,
+      // then speak — which transitions to SPEAKING and back.
+      setTimeout(() => {
+        if (State.get() === STATES.LISTENING) {
+          _speakIntro(ex, _plan.exercises.length);
+        }
+      }, 200);
+    }
+  }
+
+  // Session-level helper that talks to Voice. Kept in Session module
+  // because the intro content is session-domain, not voice-domain.
+  function _speakIntro(ex, total) {
+    const first = ex.type === 'timed'
+      ? `${ex.name}, level ${Session.getEffectiveValue(ex.id, 'level')}, ${Session.getEffectiveValue(ex.id, 'duration')} minutes`
+      : ex.name;
+    const msg = `Iron Voice ready. ${total} exercises today. Starting with ${first}.`;
+    Voice.say(msg);
   }
 
   function resume() {
@@ -2032,6 +2141,17 @@ const Session = (() => {
     Diag.add('session', 'Session resumed', { id: _data.id, index: _data.currentIndex });
     WorkoutUI.render();
     UI.showScreen('workout');
+    // Re-initialize voice on resume — must be inside the user-gesture
+    // click that triggered resume() so iOS mic permission sticks.
+    Voice.initOnSessionStart();
+    const ex = getCurrentExercise();
+    if (ex) {
+      setTimeout(() => {
+        if (State.get() === STATES.LISTENING) {
+          Voice.say(`Resumed. ${ex.name}.`);
+        }
+      }, 200);
+    }
   }
 
   function startFresh() {
@@ -2254,6 +2374,10 @@ const Session = (() => {
     };
     _data = null;
     _plan = null;
+    // Shut down voice cleanly — stops recognizer, cancels any active
+    // TTS, clears warm-keep timer, transitions state to IDLE if not
+    // already there.
+    Voice.shutdown();
     State.transition(STATES.IDLE, 'session ended');
     Summary.show(snapshot);
   }
@@ -2268,6 +2392,501 @@ const Session = (() => {
     getEffectivePlannedSets, isSetCountSavedForNextTime,
     getCurrentExercise, getEffectiveValue, getSetCount, isExerciseDone,
     heartbeat, getData, getPlan
+  };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// VOICE (Step 3 — minimal Layer 1 vocabulary)
+// ═══════════════════════════════════════════════════════════════
+// Wraps SpeechRecognition and SpeechSynthesis, enforces the state
+// machine, and implements wake-word detection + 5 basic commands.
+//
+// REGRESSION HAZARD: every state change in this module must go
+// through State.transition() — never assign currentState directly.
+// REGRESSION HAZARD: utterance chaining uses onend callbacks, never
+// setTimeout. Spec §2.4: "no fixed-delay setTimeout."
+//
+// Step 3 vocabulary: next, previous (back), repeat (say that again),
+// help, pause. Everything else is Steps 4-5.
+const Voice = (() => {
+  let _rec = null;              // SpeechRecognition instance
+  let _recActive = false;       // whether recognizer is currently running
+  let _wantListening = false;   // true while we should be in LISTENING (auto-restart)
+  let _preferredVoice = null;   // chosen SpeechSynthesisVoice
+  let _warmKeepTimer = null;    // setInterval for TTS warm-keep
+  let _lastSpeechEnd = 0;       // wall-clock ms of last TTS end (warm-keep gate)
+  let _currentUtter = null;     // active SpeechSynthesisUtterance (for tap-to-interrupt)
+  let _initialized = false;     // true after first BEGIN WORKOUT tap
+  let _pauseAfterSpeak = false; // set by 'pause' command; onend honors it
+
+  // Known iOS misrecognitions of "iron" (spec §2.4 Layer 1 allow-list).
+  const WAKE_ALLOW_LIST = new Set([
+    'iron', 'ironing', 'irons', 'i ron', 'ironic', 'ironed',
+    'hiron', 'eye ron', 'i run', 'iron.', 'iran'
+  ]);
+
+  // ───── Wake-word detection ─────────────────────────────────────
+
+  // Returns 1 if strings differ by <= 1 edit, 0 otherwise. Tight
+  // bounded version — no full DP table needed for distance <= 1.
+  function _levDistAtMostOne(a, b) {
+    if (a === b) return 0;
+    const la = a.length, lb = b.length;
+    if (Math.abs(la - lb) > 1) return 2;
+    // Find first diff
+    let i = 0;
+    while (i < la && i < lb && a[i] === b[i]) i++;
+    if (la === lb) {
+      // substitution: rest must match
+      for (let j = i + 1; j < la; j++) if (a[j] !== b[j]) return 2;
+      return i === la ? 0 : 1;
+    }
+    // insertion/deletion: the longer string has one extra char at i
+    const [long, short] = la > lb ? [a, b] : [b, a];
+    for (let j = i; j < short.length; j++) {
+      if (short[j] !== long[j + 1]) return 2;
+    }
+    return 1;
+  }
+
+  // Given a raw alternative transcript, try to find the wake word at
+  // the start. Returns { matched: true, tail: "command text" } or
+  // { matched: false } if no wake word found.
+  function _matchWakeWord(transcript) {
+    const t = (transcript || '').trim().toLowerCase().replace(/[.,!?;]+$/g, '');
+    if (!t) return { matched: false };
+    const tokens = t.split(/\s+/);
+    const firstTok = tokens[0];
+    // First: try the 2-word prefix against the allow-list (handles
+    // split-word iOS recognitions like "i ron", "eye ron").
+    if (tokens.length >= 2) {
+      const twoWord = tokens[0] + ' ' + tokens[1];
+      if (WAKE_ALLOW_LIST.has(twoWord)) {
+        return { matched: true, tail: tokens.slice(2).join(' ') };
+      }
+    }
+    // Then: 1-word allow-list (most common path)
+    if (WAKE_ALLOW_LIST.has(firstTok)) {
+      return { matched: true, tail: tokens.slice(1).join(' ') };
+    }
+    // Levenshtein <= 1 to the canonical wake word
+    if (_levDistAtMostOne(firstTok, CONFIG.WAKE_WORD) <= 1) {
+      return { matched: true, tail: tokens.slice(1).join(' ') };
+    }
+    // Prefix form ("iron-next" in rare cases)
+    if (firstTok.startsWith('iron') && firstTok.length <= 6) {
+      return { matched: true, tail: tokens.slice(1).join(' ') };
+    }
+    return { matched: false };
+  }
+
+  // Try every recognizer alternative; first that yields a wake-word
+  // match wins.
+  function _findWakeWordInAlternatives(resultsList) {
+    if (!resultsList || resultsList.length === 0) return { matched: false };
+    const last = resultsList[resultsList.length - 1];
+    for (let i = 0; i < last.length; i++) {
+      const m = _matchWakeWord(last[i].transcript);
+      if (m.matched) {
+        Diag.add('voice', `Wake match (alt ${i})`, { text: last[i].transcript, tail: m.tail });
+        return m;
+      }
+    }
+    Diag.add('voice', 'No wake word in alternatives', {
+      alts: Array.from(last).map(a => a.transcript).slice(0, 3)
+    });
+    return { matched: false };
+  }
+
+  // ───── Command parser (Layer 1 subset) ─────────────────────────
+
+  function _parseCommand(tail) {
+    const t = (tail || '').trim().toLowerCase().replace(/[.,!?;]+$/g, '');
+    if (!t) return { cmd: 'bare' };  // bare "Iron" with nothing after
+    // NEXT
+    if (/^(next( exercise)?|move on|keep going)$/.test(t)) return { cmd: 'next' };
+    // PREVIOUS
+    if (/^(previous( exercise)?|back|go back|last one)$/.test(t)) return { cmd: 'previous' };
+    // REPEAT
+    if (/^(repeat|say that again|what was that|come again)$/.test(t)) return { cmd: 'repeat' };
+    // HELP
+    if (/^help$/.test(t)) return { cmd: 'help' };
+    // PAUSE
+    if (/^(pause|stop listening|mute)$/.test(t)) return { cmd: 'pause' };
+    return { cmd: 'unknown', text: t };
+  }
+
+  function _executeCommand(parsed) {
+    State.transition(STATES.PROCESSING, `parse: ${parsed.cmd}`);
+    switch (parsed.cmd) {
+      case 'bare':
+        _speak('Yes? What would you like to do?');
+        return;
+      case 'next': {
+        const plan = Session.getPlan();
+        const data = Session.getData();
+        if (!plan || !data) { _speak('No session active.'); return; }
+        if (data.currentIndex >= plan.exercises.length - 1) {
+          _speak('That was the last exercise.');
+          return;
+        }
+        Session.navigate(1);
+        const ex = Session.getCurrentExercise();
+        _speak(`Moving to ${ex.name}.`);
+        return;
+      }
+      case 'previous': {
+        const data = Session.getData();
+        if (!data) { _speak('No session active.'); return; }
+        if (data.currentIndex === 0) {
+          _speak('Already at the first exercise.');
+          return;
+        }
+        Session.navigate(-1);
+        const ex = Session.getCurrentExercise();
+        _speak(`Going back to ${ex.name}.`);
+        return;
+      }
+      case 'repeat': {
+        const ex = Session.getCurrentExercise();
+        if (!ex) { _speak('No exercise loaded.'); return; }
+        _speak(_describeExercise(ex));
+        return;
+      }
+      case 'help':
+        _speak('Say next, previous, or repeat. More commands coming soon.');
+        return;
+      case 'pause':
+        _stopRecognizer();
+        _wantListening = false;
+        _speak('Paused. Tap the badge to resume.');
+        // After speech ends, state goes to LISTENING by default via onend.
+        // We want IDLE instead, so flag it:
+        _pauseAfterSpeak = true;
+        return;
+      case 'unknown':
+      default:
+        _speak("I didn't catch that. Say Iron help for commands.");
+        return;
+    }
+  }
+
+  function _describeExercise(ex) {
+    if (ex.type === 'timed') {
+      return `${ex.name}. Level ${Session.getEffectiveValue(ex.id, 'level')}. ${Session.getEffectiveValue(ex.id, 'duration')} minutes.`;
+    }
+    const sets = Session.getEffectivePlannedSets(ex.id);
+    const reps = Session.getEffectiveValue(ex.id, 'reps');
+    const weight = Session.getEffectiveValue(ex.id, 'weight');
+    const setsWord = sets === 1 ? 'set' : 'sets';
+    return `${ex.name}. ${sets} ${setsWord}, ${reps} reps at ${weight} pounds.`;
+  }
+
+  // ───── TTS ─────────────────────────────────────────────────────
+
+  function _pickVoice() {
+    const voices = window.speechSynthesis.getVoices() || [];
+    if (voices.length === 0) return null;
+    const byName = name => voices.find(v => v.name === name);
+    const knownFemale = new Set(['Samantha', 'Victoria', 'Susan', 'Allison', 'Ava', 'Karen', 'Zoe']);
+    const candidates = [
+      byName('Alex'),
+      byName('Aaron'),
+      byName('Fred'),
+      voices.find(v => v.lang === 'en-US' && !knownFemale.has(v.name)),
+      voices.find(v => v.lang === 'en-US'),
+      voices.find(v => /^en[-_]/.test(v.lang))
+    ];
+    for (const v of candidates) if (v) return v;
+    return voices[0] || null;
+  }
+
+  function _ensureVoice() {
+    if (_preferredVoice) return;
+    _preferredVoice = _pickVoice();
+    if (!_preferredVoice && window.speechSynthesis && 'onvoiceschanged' in window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        if (!_preferredVoice) {
+          _preferredVoice = _pickVoice();
+          if (_preferredVoice) {
+            Diag.add('voice', `Voice selected (async): ${_preferredVoice.name}`);
+          }
+        }
+      };
+    } else if (_preferredVoice) {
+      Diag.add('voice', `Voice selected: ${_preferredVoice.name}`);
+    }
+  }
+
+  function _speak(text, onDone) {
+    if (!window.speechSynthesis) { if (onDone) onDone(); return; }
+    _stopRecognizer();
+    State.transition(STATES.SPEAKING, `speak: ${text.slice(0, 40)}`);
+    const u = new SpeechSynthesisUtterance(text);
+    if (_preferredVoice) u.voice = _preferredVoice;
+    u.rate = 1.0;
+    u.pitch = 1.0;
+    u.volume = 1.0;
+    u.onend = () => {
+      _lastSpeechEnd = Date.now();
+      _currentUtter = null;
+      Diag.add('voice', 'TTS ended');
+      if (_pauseAfterSpeak) {
+        _pauseAfterSpeak = false;
+        State.transition(STATES.IDLE, 'pause command');
+        return;
+      }
+      if (onDone) {
+        try { onDone(); } catch (e) { Diag.add('voice', 'onDone error', String(e)); }
+      }
+      // Return to LISTENING if session is still active
+      if (_wantListening) {
+        State.transition(STATES.LISTENING, 'TTS done → listen');
+        _startRecognizer();
+      } else {
+        State.transition(STATES.IDLE, 'TTS done, not listening');
+      }
+    };
+    u.onerror = (e) => {
+      Diag.add('voice', 'TTS error', { error: e.error || String(e) });
+      _currentUtter = null;
+      if (_wantListening) {
+        State.transition(STATES.LISTENING, 'TTS error → listen');
+        _startRecognizer();
+      } else {
+        State.transition(STATES.IDLE, 'TTS error, not listening');
+      }
+    };
+    _currentUtter = u;
+    try { window.speechSynthesis.speak(u); } catch (e) {
+      Diag.add('voice', 'speechSynthesis.speak threw', String(e));
+      if (u.onerror) u.onerror({ error: 'threw' });
+    }
+  }
+
+  // Called by global tap handler — cancels current utterance so user
+  // doesn't have to wait for app to finish talking.
+  function interruptSpeech() {
+    if (State.get() !== STATES.SPEAKING) return;
+    try { window.speechSynthesis.cancel(); } catch(e) {}
+    Diag.add('voice', 'TTS interrupted by tap');
+    _currentUtter = null;
+    // onend fires; the onend handler will transition to LISTENING.
+  }
+
+  // Silent warm-keep to prevent iOS silence-after-idle bug (spec §3.4).
+  // Fires every 15s while in LISTENING if TTS has been idle >= 15s.
+  function _startWarmKeep() {
+    if (_warmKeepTimer) return;
+    _warmKeepTimer = setInterval(() => {
+      if (State.get() !== STATES.LISTENING) return;
+      if (Date.now() - _lastSpeechEnd < 15000) return;
+      if (!window.speechSynthesis || window.speechSynthesis.speaking) return;
+      try {
+        const u = new SpeechSynthesisUtterance(' ');
+        u.volume = 0;
+        u.rate = 1;
+        if (_preferredVoice) u.voice = _preferredVoice;
+        window.speechSynthesis.speak(u);
+        _lastSpeechEnd = Date.now();
+      } catch(e) {
+        Diag.add('voice', 'Warm-keep error', String(e));
+      }
+    }, 15000);
+  }
+
+  function _stopWarmKeep() {
+    if (_warmKeepTimer) { clearInterval(_warmKeepTimer); _warmKeepTimer = null; }
+  }
+
+  // ───── Recognizer ──────────────────────────────────────────────
+
+  function _buildRecognizer() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      Diag.add('voice', 'SpeechRecognition not available');
+      return null;
+    }
+    const r = new SR();
+    r.continuous = false;
+    r.interimResults = false;
+    r.lang = 'en-US';
+    r.maxAlternatives = 5;
+
+    r.onstart = () => {
+      _recActive = true;
+      Diag.add('voice', 'Recognizer onstart');
+    };
+    r.onend = () => {
+      _recActive = false;
+      Diag.add('voice', 'Recognizer onend', { wantListening: _wantListening });
+      // Auto-restart loop — the only reliable iOS pattern (spec §3.2).
+      if (_wantListening && State.get() === STATES.LISTENING) {
+        setTimeout(() => _startRecognizer(), 100);
+      }
+    };
+    r.onerror = (e) => {
+      const err = e.error || 'unknown';
+      Diag.add('voice', 'Recognizer onerror', { error: err });
+      if (err === 'no-speech' || err === 'aborted') {
+        // Not a real error — just a silent gap; onend will restart.
+        return;
+      }
+      if (err === 'not-allowed' || err === 'service-not-allowed') {
+        _wantListening = false;
+        State.transition(STATES.ERROR, `mic permission: ${err}`);
+        UI.raiseBanner('mic-perm', 'err',
+          'Microphone access required. Enable in iOS Settings → Safari → Microphone, then tap the voice badge.',
+          'Retry', () => restart());
+        return;
+      }
+      if (err === 'audio-capture') {
+        _wantListening = false;
+        State.transition(STATES.ERROR, 'audio-capture failure');
+        UI.raiseBanner('mic-cap', 'err',
+          'Audio capture failed. Check your microphone and tap the voice badge to try again.',
+          'Retry', () => restart());
+        return;
+      }
+      if (err === 'network') {
+        State.transition(STATES.ERROR, 'network');
+        UI.raiseOfflineBanner();
+        return;
+      }
+      // Fall through: generic error, try restart
+      State.transition(STATES.ERROR, `rec error: ${err}`);
+    };
+    r.onresult = (e) => {
+      Diag.add('voice', 'Recognizer onresult');
+      const match = _findWakeWordInAlternatives(e.results);
+      if (!match.matched) {
+        // Silent: no wake word, just keep listening (spec §3.2)
+        return;
+      }
+      const parsed = _parseCommand(match.tail);
+      Diag.add('voice', `Parsed command`, parsed);
+      _executeCommand(parsed);
+    };
+    return r;
+  }
+
+  function _startRecognizer() {
+    if (!_rec) _rec = _buildRecognizer();
+    if (!_rec) return;
+    if (_recActive) return;
+    try {
+      _rec.start();
+    } catch (e) {
+      // Safari throws if start() is called while already running —
+      // onend will trigger a restart.
+      Diag.add('voice', 'recognizer.start() threw', String(e));
+    }
+  }
+
+  function _stopRecognizer() {
+    if (!_rec) return;
+    try { _rec.stop(); } catch(e) {}
+  }
+
+  // ───── Public API ──────────────────────────────────────────────
+
+  // Called from Session.start() on user's BEGIN WORKOUT tap. This
+  // gesture is required by iOS for both mic permission and TTS warmup.
+  function initOnSessionStart() {
+    _initialized = true;
+    if (!navigator.onLine) {
+      UI.raiseOfflineBanner();
+      Diag.add('voice', 'Offline at session start — voice disabled');
+      State.transition(STATES.ERROR, 'offline');
+      return;
+    }
+    _ensureVoice();
+    // Warm TTS inside the user gesture so later utterances aren't
+    // swallowed (spec §3.2).
+    try {
+      const warmup = new SpeechSynthesisUtterance(' ');
+      warmup.volume = 0;
+      window.speechSynthesis.speak(warmup);
+    } catch(e) {}
+    _wantListening = true;
+    State.transition(STATES.LISTENING, 'voice init');
+    _startRecognizer();
+    _startWarmKeep();
+  }
+
+  // Called when a session ends (explicit end or home exit).
+  function shutdown() {
+    _wantListening = false;
+    _stopRecognizer();
+    _stopWarmKeep();
+    try { window.speechSynthesis.cancel(); } catch(e) {}
+    if (State.get() === STATES.LISTENING || State.get() === STATES.SPEAKING ||
+        State.get() === STATES.PROCESSING || State.get() === STATES.ERROR) {
+      State.transition(STATES.IDLE, 'voice shutdown');
+    }
+    Diag.add('voice', 'Shutdown');
+  }
+
+  // Called when the voice badge is tapped — toggles listening state.
+  function handleBadgeTap() {
+    if (!_initialized) return;  // session never started
+    const s = State.get();
+    if (s === STATES.IDLE) {
+      // Resume from pause
+      _wantListening = true;
+      if (!navigator.onLine) {
+        UI.raiseOfflineBanner();
+        return;
+      }
+      State.transition(STATES.LISTENING, 'badge tap → resume');
+      _startRecognizer();
+    } else if (s === STATES.ERROR) {
+      restart();
+    } else if (s === STATES.LISTENING) {
+      // Tap to pause
+      _wantListening = false;
+      _stopRecognizer();
+      State.transition(STATES.IDLE, 'badge tap → pause');
+    } else if (s === STATES.SPEAKING) {
+      interruptSpeech();
+    }
+  }
+
+  function restart() {
+    UI.clearBanner('mic-perm');
+    UI.clearBanner('mic-cap');
+    _wantListening = true;
+    State.transition(STATES.LISTENING, 'restart');
+    _startRecognizer();
+  }
+
+  // Called on visibilitychange (handled in Lifecycle).
+  function onVisibilityHidden() {
+    if (_recActive) {
+      _stopRecognizer();
+      Diag.add('voice', 'Visibility hidden — recognizer stopped');
+    }
+  }
+  function onVisibilityVisible() {
+    if (_wantListening && State.get() === STATES.LISTENING) {
+      Diag.add('voice', 'Visibility visible — restarting recognizer');
+      setTimeout(() => _startRecognizer(), 200);
+    }
+  }
+
+  // Public speak — used by Session for intro/announcements. Respects
+  // the state machine: will suspend recognizer, transition to SPEAKING,
+  // then resume LISTENING on end (unless paused).
+  function say(text, onDone) {
+    _speak(text, onDone);
+  }
+
+  // Expose a small testable surface. Helpers marked __ are for tests.
+  return {
+    initOnSessionStart, shutdown, handleBadgeTap, restart, say,
+    interruptSpeech, onVisibilityHidden, onVisibilityVisible,
+    __matchWakeWord: _matchWakeWord,
+    __parseCommand: _parseCommand
   };
 })();
 
@@ -2531,6 +3150,7 @@ const WorkoutUI = (() => {
     const hasEntries = sessionData && sessionData.logEntries && sessionData.logEntries.length > 0;
     if (!hasEntries) {
       // Nothing logged — silently discard the session and go home
+      Voice.shutdown();
       Storage.saveKey('session', null);
       UI.showScreen('welcome');
       UI.refreshWelcome();
@@ -2553,7 +3173,9 @@ const WorkoutUI = (() => {
 
   function confirmExitToHome() {
     document.getElementById('exit-home-overlay').classList.remove('active');
-    // Session stays in localStorage as-is — user can resume next time
+    // Session stays in localStorage as-is — user can resume next time.
+    // Shut down voice so the mic releases and we stop burning power.
+    Voice.shutdown();
     UI.showScreen('welcome');
     UI.refreshWelcome();
   }
@@ -3172,10 +3794,27 @@ function init() {
 
   document.addEventListener('visibilitychange', () => {
     Diag.add('lifecycle', `visibility → ${document.visibilityState}`);
-    if (document.visibilityState === 'visible' && Session.getData()) {
-      Session.heartbeat();
+    if (document.visibilityState === 'hidden') {
+      Voice.onVisibilityHidden();
+    } else if (document.visibilityState === 'visible') {
+      if (Session.getData()) Session.heartbeat();
+      Voice.onVisibilityVisible();
     }
   });
+
+  // Tap-to-interrupt: single tap anywhere on the workout screen
+  // cancels an in-progress TTS utterance within ~200ms (spec §3.3).
+  // We only act if state is SPEAKING and the tap target is not a
+  // button or input — otherwise legitimate tap-to-log interactions
+  // would cancel speech unintentionally.
+  document.getElementById('screen-workout').addEventListener('click', (e) => {
+    if (State.get() !== STATES.SPEAKING) return;
+    const t = e.target;
+    // Skip interrupt for taps on buttons and inputs — those are
+    // intentional UI interactions, not "shut up and listen" taps.
+    if (t.closest('button') || t.tagName === 'INPUT') return;
+    Voice.interruptSpeech();
+  }, true);
 
   window.addEventListener('beforeunload', () => {
     Diag.add('lifecycle', 'beforeunload');
