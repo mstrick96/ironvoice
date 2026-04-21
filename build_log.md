@@ -32,7 +32,7 @@ Each step produces a testable artifact. Do not proceed to the next step until th
 |------|------|--------|
 | 1 | Skeleton + storage architecture | 🟢 Complete |
 | 2 | State machine + UI shell | 🟢 Complete |
-| 3 | Voice loop (Layer 1 wake word + basic commands) | ⚪ Not started |
+| 3 | Voice loop (Layer 1 wake word + basic commands) | 🟡 Code produced — awaiting device test |
 | 4 | Full command grammar (Layer 2) | ⚪ Not started |
 | 5 | Layer 3 intent matching | ⚪ Not started |
 | 6 | Wake Lock + wall-clock rest timer + lifecycle hardening | ⚪ Not started |
@@ -411,3 +411,123 @@ Step 3 is cleared to begin.
 ---
 
 *End of build log — last updated 2026-04-20 (Step 2 complete).*
+
+---
+
+## Step 3 — Voice Loop (Layer 1)
+
+**Status: 🟡 Code produced — ready for device testing**
+
+**Goal:** Bring the app to life with voice. The user taps BEGIN WORKOUT once, grants mic permission, and controls the workout by speaking "Iron" followed by a command. The voice status badge in the workout header shows live state (Listening / Speaking / Processing / Paused / Audio Off) driven entirely by `State.transition()`.
+
+Step 3 builds the voice **plumbing** and a minimal Layer 1 command vocabulary. Steps 4–5 build the full grammar; Step 6 adds Wake Lock and the wall-clock rest timer.
+
+### What was added in Step 3
+
+**New module: `Voice` (≈380 lines)**
+- Wraps `SpeechRecognition` (webkit-prefixed) and `speechSynthesis`.
+- Holds recognizer instance, TTS preferred voice, warm-keep interval, wake-word matcher, Layer 1 parser.
+- Public API: `initOnSessionStart()`, `shutdown()`, `handleBadgeTap()`, `restart()`, `say(text, onDone)`, `interruptSpeech()`, `onVisibilityHidden()`, `onVisibilityVisible()`. Test helpers: `__matchWakeWord`, `__parseCommand`.
+
+**Wake-word matcher (Layer 1)**
+- Bounded Levenshtein (distance ≤ 1 only — ~15 lines, not a full DP table).
+- Allow-list of 11 known iOS misrecognitions: `iron`, `ironing`, `irons`, `i ron`, `ironic`, `ironed`, `hiron`, `eye ron`, `i run`, `iron.`, `iran`.
+- Handles 2-word split-misrecognitions (`"i ron"`, `"eye ron"`) by trying 2-word prefixes against the allow-list before 1-word.
+- Prefix form (`iron-*` up to 6 chars) caught as a safety net.
+- Tries each of the 5 recognizer alternatives; first match wins.
+- 17/17 unit tests passed offline: all documented misrecognitions match, all non-wake utterances reject, all empty / punctuation edge cases handled correctly.
+
+**Layer 1 command parser — minimal vocabulary**
+- `next` / `next exercise` / `move on` / `keep going`
+- `previous` / `previous exercise` / `back` / `go back` / `last one`
+- `repeat` / `say that again` / `what was that` / `come again`
+- `help`
+- `pause` / `stop listening` / `mute`
+- Empty tail (`"Iron"` with nothing after) → bare prompt: "Yes? What would you like to do?"
+- Anything else → "I didn't catch that. Say Iron help for commands."
+
+**Recognizer behavior (spec §3.2)**
+- `continuous = false`, `interimResults = false`, `lang = 'en-US'`, `maxAlternatives = 5`.
+- Auto-restart in `onend` whenever `_wantListening` is true and state is LISTENING — the only reliable pattern on iOS.
+- `onerror` routes by error code: `no-speech`/`aborted` → silent restart; `not-allowed`/`service-not-allowed` → ERROR + mic-permission banner with Retry; `audio-capture` → ERROR + retry banner; `network` → ERROR + offline banner.
+
+**TTS behavior (spec §3.4)**
+- Voice preference ladder: Alex → Aaron → Fred → any `en-US` non-female (excludes Samantha, Victoria, Susan, Allison, Ava, Karen, Zoe) → any `en-US` → any English.
+- `onvoiceschanged` retry loop handles iOS's asynchronous voice list load.
+- Utterance chaining via `onend` callback — **never setTimeout** (spec §2.4).
+- 15-second silent warm-keep utterance (single space, volume 0) fires only when state is LISTENING and ≥15s since last TTS end. Prevents iOS silence-after-idle bug.
+- `speechSynthesis.cancel()` only on explicit tap-to-interrupt or shutdown — prevents v1.3.1's audio-focus-handoff race.
+
+**State machine wiring (spec Table 3)**
+- `Session.start()` → `Voice.initOnSessionStart()` → transition IDLE → LISTENING. Intro utterance ("Iron Voice ready. 13 exercises today. Starting with Recumbent Bike, level 1, 10 minutes.") routes through `Voice.say()` so mic is properly suspended during TTS.
+- `Session.resume()` → same pattern, plus "Resumed. [exercise name]."
+- `Session.end()` → `Voice.shutdown()` (stops recognizer, cancels TTS, clears warm-keep) then transition to IDLE.
+- Both home-exit paths (with and without logged sets) → `Voice.shutdown()` before leaving workout screen.
+- `speak()` transitions LISTENING → SPEAKING, runs TTS, on `onend` transitions back to LISTENING and restarts recognizer. If `_pauseAfterSpeak` is set (by `pause` command), transitions to IDLE instead.
+- Badge tap: IDLE → resumes listening; ERROR → restart; LISTENING → pauses to IDLE; SPEAKING → interrupts TTS.
+
+**UI integration**
+- Workout-header restructured into two rows. Top row: HOME button (left), IRON VOICE brand (center), voice status badge (right). Bottom row: exercise progress indicator. This also fixes the deferred patch-3 banner-overlap cosmetic bug by letting `--banner-h` offset the entire header cleanly.
+- `UI.reflectState()` extended to drive the voice badge. Five state styles via CSS classes: `voice-listening` (orange, pulsing dot animation), `voice-speaking` (filled orange background), `voice-processing` (neutral), `voice-error` (red border, red dot), `voice-idle` (grey, "Paused" text).
+- Badge is tappable on the workout screen (calls `Voice.handleBadgeTap`).
+
+**Tap-to-interrupt (spec §3.3)**
+- Capturing-phase click handler on `screen-workout`. When state is SPEAKING and the tap target is not a button or input, calls `Voice.interruptSpeech()` which cancels TTS and transitions to LISTENING.
+- Explicit exclusion of buttons and inputs so legitimate tap-to-log interactions don't accidentally cancel speech.
+
+**Lifecycle wiring**
+- `visibilitychange` → `Voice.onVisibilityHidden()` on hide (stops recognizer), `Voice.onVisibilityVisible()` on show (restarts recognizer if session active). Full Wake Lock integration is Step 6 — for Step 3 the screen will still auto-lock and the voice loop pauses until unlock.
+
+### Locked decisions
+
+- Wake word remains "Iron" with the fallback to "Iron up" available via `CONFIG.WAKE_WORD_FALLBACK` (not yet wired — documented for Step 4+ if false-trigger rate is unacceptable).
+- Levenshtein ≤ 1 is the exact threshold from the spec. No tuning planned.
+- The `_pauseAfterSpeak` flag pattern — used only for the `pause` command — is a one-off; it would grow into a cleaner transition-queue pattern in Step 4 if more commands need post-speech state control.
+
+### Exit criteria — test all on iPhone before marking Step 3 complete
+
+1. Launch. Tap BEGIN WORKOUT. iOS prompts for mic permission. Grant it. Voice badge reads "Listening" with an orange pulsing dot.
+2. App speaks the intro: "Iron Voice ready. 13 exercises today. Starting with Recumbent Bike…". Badge goes solid orange during speech, returns to pulsing "Listening" after.
+3. Say "Iron next." App speaks "Moving to Chest Press." State transitions reflect on badge.
+4. Say "Iron previous." App speaks "Going back to Recumbent Bike."
+5. Say "Iron repeat." App re-reads the current exercise description.
+6. Say "Iron help." App speaks: "Say next, previous, or repeat. More commands coming soon."
+7. Say just "Iron." App speaks: "Yes? What would you like to do?" and stays in Listening.
+8. Say "the weather is nice today" (no wake word). App stays in Listening. No speech, no action.
+9. Say "Iron banana." App speaks: "I didn't catch that. Say Iron help for commands."
+10. Say "Iron pause." App transitions to IDLE, badge reads "Paused" in grey. Tap the badge — returns to "Listening".
+11. During app speech, tap the workout screen (away from buttons). Speech cancels within ~200ms, badge returns to Listening immediately.
+12. Leave app idle on Listening for 30+ seconds. Say "Iron next." App still responds (warm-keep working).
+13. Lock iPhone screen. Wait 30s. Unlock. Voice loop resumes listening.
+14. Background the app (home gesture). Wait 30s. Return. Voice loop restarts, no stuck badge.
+15. Airplane mode → reload. Offline banner appears. BEGIN WORKOUT doesn't start voice. Tap controls still work.
+16. Say "Ironing next." App still matches "ironing" as the wake word and executes "next" (fuzzy match).
+17. Header layout: "STEP 2 · TAP" placeholder is gone. Voice badge shows real state. HOME button still works. Plan-change banners no longer overlap the header text.
+18. All Step 2 tap-driven flows still work identically: ADD SET button, tap-to-edit weight/reps, plan editor, resume flow, summary screen, end-workout confirmation.
+
+### What is NOT in Step 3
+
+- Full Layer 2 keyword grammar (Tables 8–15 of spec) — Step 4
+- Layer 3 intent matching with similarity scoring — Step 5
+- Compound commands (`log it and rest`) — Step 4
+- `go to [exercise name]` with alias lookup — Step 4
+- Rest timer and audio cues — Step 6
+- Screen Wake Lock — Step 6
+- Full end-of-workout spoken summary — Step 4
+- CSV export — Step 7
+
+### Decision log for Step 3
+
+**2026-04-21 — Step 3 code produced**
+
+- **Allow-list rather than full Levenshtein for wake word.** Using `Set` lookup for the known misrecognitions (11 entries) plus bounded Levenshtein ≤ 1 is O(1) per check and handles the edge cases the spec calls out. A full edit-distance library isn't needed at this layer — Layer 3 in Step 5 uses a different matching system for the command tail, not the wake word.
+- **Two-word allow-list entries handled by trying 2-word prefixes first.** `"i ron"` and `"eye ron"` are real iOS misrecognitions. The initial implementation split only on the first space, which meant `"i ron next"` tokenized as `firstTok="i"`, `rest="ron next"` — no match. Fixed by checking `tokens[0] + ' ' + tokens[1]` against the allow-list before falling through to 1-word matching.
+- **`Voice.say()` public method rather than accessing `_speak` directly from Session.** Sharing an underscored private across modules is fragile. Public `say(text, onDone)` gives Session a clean interface for the intro and "resumed" announcements, and will be used in Step 4 for the full command responses that originate in Session.
+- **Tap-to-interrupt uses capturing phase with target filtering.** If tap-to-interrupt ran on every click including button taps, pressing a set dot during app speech would cancel speech AND log a set — surprising behavior. Filtering `e.target.closest('button')` and `e.target.tagName === 'INPUT'` means only taps on blank exercise-card area or the exercise name cancel speech.
+- **Warm-keep timing gate uses wall-clock.** `Date.now() - _lastSpeechEnd >= 15000` instead of counting interval ticks. Same wall-clock principle as the rest timer will use in Step 6; survives backgrounding without drift.
+- **`_pauseAfterSpeak` flag is a one-off.** It's the minimum viable mechanism for making the pause command's TTS finish before transitioning to IDLE (rather than returning to LISTENING as the default `onend` path does). If Step 4 adds more post-speech state control, this will be replaced with a proper transition queue.
+- **Deferred patch-3 banner-overlap cosmetic issue is resolved** by the header restructure. The single-row flex layout with three competing items was what made the banner collide with the header text on iPhone; splitting into two rows gives the `--banner-h` offset clean vertical real estate to push into.
+
+---
+
+*End of build log — last updated 2026-04-21 (Step 3 code produced).*
