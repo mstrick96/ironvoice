@@ -531,3 +531,52 @@ Step 3 builds the voice **plumbing** and a minimal Layer 1 command vocabulary. S
 ---
 
 *End of build log — last updated 2026-04-21 (Step 3 code produced).*
+
+### 2026-04-21 — Step 3 patch 1 (diagnostic tools + critical bug fixes)
+
+**Context.** First device test of Step 3 revealed significant problems: voice quality was unacceptable (iOS was picking the compact Alex voice, robotic), "reps" was pronounced "representatives", navigation (voice or tap) was silent instead of announcing the destination, and recognition latency was 1.5-2s with intermittent failures. Web-search research surfaced a critical constraint: iOS Safari does not expose the best Siri/Premium voices to the Web Speech API even though they're installed on the device. This is an Apple platform limit, not a coding bug. Path forward: stay on Web Speech API, upgrade voice selection to prefer the best of what Safari exposes, let the user override via a diagnostic tool, and fix the other bugs.
+
+**Voice quality — quality-scored selection replacing name-match.**
+Previous `_pickVoice` did `byName('Alex')` first, which always picked the low-quality compact Alex on iOS 16+. New `_pickVoice` builds a score per voice using Apple's naming conventions: +100 for `siri` in name, +80 for `premium`, +60 for `enhanced`, +30 for `localService === false` (server-rendered/neural), +20 for `en-US`, +3 for non-female. Highest score wins. On iOS 26 devices this should pick whatever enhanced voice is installed (Ava Enhanced, Siri voices if exposed, etc.). Falls back cleanly to compact voices only when nothing better is installed.
+
+**Voice Tester screen (new).**
+A diagnostic utility accessible from the Welcome screen. Enumerates every voice `speechSynthesis.getVoices()` returns on this specific device, groups them by language (English first), shows each with its name, locale, and tags (remote / default). Each row has a Play button (samples the voice with a realistic app phrase — "Moving to Chest Press. One set, twenty reps at forty pounds.") and a Use button. Choosing Use persists the selection to `settings.preferredVoiceName` in localStorage; the choice survives page reload.
+
+This is the definitive tool for answering "which voice sounds best on my device" — no more guessing from spec names. Also serves as a bug diagnostic: if iOS isn't exposing the good voices at all, the Voice Tester lists show exactly what's available.
+
+**Text normalization (`reps` → `repetitions` and more).**
+New `_normalizeForSpeech(text)` function in the Voice module, applied inside `_speak()` before the utterance is passed to `speechSynthesis.speak()`. Whole-word (`\b`) regex rules:
+- `reps` → `repetitions`
+- `rep` → `repetition`
+- `lbs` → `pounds`
+- `lb` → `pound`
+- `min` → `minutes`
+- `sec` → `seconds`
+- `L1` / `L2` / `Ln` → `level N`
+
+Whole-word boundary means legitimate words like "representative", "report", "combination" are untouched. 11/11 offline tests passed including the don't-mangle-real-words cases.
+
+**Silent navigation bug fix.**
+`Session.navigate()` now speaks the arriving exercise description via `Voice.say(_describeForSpeech(ex))`. Called on both voice-driven (`Iron next`) and tap-driven (NEXT button) navigation — announcements are consistent regardless of input method. Voice command handlers for `next` and `previous` no longer speak their own "Moving to X" prefix since `Session.navigate()` does the complete announcement including set count, reps, and weight. This also matches spec §6.2 which calls for exercise announcements on arrival.
+
+New helper `Session._describeForSpeech(ex)` generates the canonical spoken description. Intentionally duplicates a similar helper in the Voice module (`_describeExercise`) — duplication is cheaper than cross-module coupling at this stage.
+
+**Recognizer restart hardening.**
+`onend` restart delay increased from 100ms to 300ms. iOS Safari needs ~250ms minimum to fully release the mic between single-shot recognitions; the previous 100ms sometimes fired before the mic was free, causing silent rejection (recognizer appeared active but no audio reached `onresult`).
+
+`_startRecognizer()` now detects `InvalidStateError` / "already started" in the thrown exception message and retries once after a 500ms delay. Capped at 2 retries to prevent infinite loops.
+
+Expected effect: fewer "have to say Iron next three times" moments. Not a cure for ambient noise interference but addresses the mic-release race condition.
+
+**Known limitation accepted.**
+The 1-2 second latency between "Iron next" and app response is inherent to iOS Safari's Web Speech API — Safari routes recognition through the legacy `SFSpeechRecognizer` pipeline even on iOS 26 (which has a new faster API called SpeechAnalyzer that is Swift-only and not exposed to web pages). The app is subject to this constraint unless ported to a native iOS app. The user explicitly chose to remain on the browser-app architecture and accept the latency.
+
+**Version tag bumped to `patch 1`.**
+
+**Test before calling Step 3 ready:**
+1. Open Welcome screen → tap "Voice Tester" → sample several voices → pick one you find acceptable → tap Use → return to Welcome.
+2. BEGIN WORKOUT. Listen to the intro — voice should now be the one you picked.
+3. Say "Iron next." Tap NEXT button. Both should speak the full destination exercise details ("Moving to Chest Press. One set, twenty repetitions at forty pounds.") — note "repetitions" not "representatives".
+4. Recognition should feel a bit more reliable than patch 0; still not instant but fewer silent failures.
+5. If no voice is acceptable, that's a platform limitation and we need to have the cloud-TTS conversation.
+
