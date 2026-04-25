@@ -1308,6 +1308,10 @@ body {
      BANNER AREA
      ═══════════════════════════════════════════════════════════════ -->
 <div id="banner-area" style="position:fixed;top:0;left:0;right:0;z-index:2000;pointer-events:none;"></div>
+<div id="voice-diag-overlay" style="display:none;position:fixed;bottom:20px;left:12px;right:12px;z-index:1800;background:rgba(20,20,22,0.95);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;font-size:11px;color:var(--text);pointer-events:none;font-family:-apple-system,sans-serif;line-height:1.4">
+  <div style="color:var(--accent);font-weight:700;letter-spacing:1px;font-size:9px;margin-bottom:4px">VOICE DIAGNOSTIC</div>
+  <div id="voice-diag-content" style="white-space:pre-wrap;word-break:break-word;color:var(--text-2);font-size:11px"></div>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════════════
      SCREEN: Welcome
@@ -1315,7 +1319,7 @@ body {
 <div class="screen screen-center" id="screen-welcome">
   <div class="logo">IRON<br>VOICE</div>
   <div class="logo-sub">Workout Assistant</div>
-  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 3 · patch 1</div>
+  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 3 · patch 2</div>
   <div class="welcome-plan-info" id="welcome-plan-info">Loading plan…</div>
   <button class="btn-primary" onclick="Session.start()">BEGIN WORKOUT</button>
   <div class="btn-row">
@@ -1475,6 +1479,13 @@ body {
   </div>
   <div id="voice-tester-current" style="padding:8px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;font-size:13px">
     Current: <span id="voice-tester-current-name" style="color:var(--accent);font-weight:600">—</span>
+  </div>
+  <div id="voice-diag-toggle-row" style="padding:10px 12px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;font-size:12px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+    <div style="flex:1;line-height:1.4">
+      <div style="font-weight:600;color:var(--text)">Show voice diagnostic overlay</div>
+      <div style="color:var(--text-3);font-size:11px;margin-top:2px">Displays the 5 raw transcripts from iOS during workouts. Use when commands aren't being recognized to see what was actually heard.</div>
+    </div>
+    <button id="voice-diag-toggle-btn" class="voice-tester-play-btn" onclick="VoiceTester.toggleDiag()">OFF</button>
   </div>
   <div id="voice-tester-list"></div>
   <button class="inspector-back" onclick="VoiceTester.close()">← Back</button>
@@ -1665,8 +1676,8 @@ body {
 // CONFIGURATION (user-editable constants)
 // ═══════════════════════════════════════════════════════════════
 const CONFIG = {
-  WAKE_WORD: 'iron',
-  WAKE_WORD_FALLBACK: 'iron up',
+  WAKE_WORD: 'coach',
+  WAKE_WORD_FALLBACK: 'hey coach',
   DEFAULT_REST_SECONDS: 90,
   STALE_SESSION_HOURS: 6,
   DIAG_BUFFER_SIZE: 100,
@@ -1834,7 +1845,8 @@ const Storage = (() => {
       schemaVersion: SCHEMA_VERSION,
       defaultRestSeconds: CONFIG.DEFAULT_REST_SECONDS,
       lastExportDate: null,
-      lastBackupConfirmedDate: null
+      lastBackupConfirmedDate: null,
+      voiceDiagEnabled: false
     };
   }
   function validateShape(key, obj) {
@@ -2270,7 +2282,7 @@ const Session = (() => {
     WorkoutUI.render();
     Diag.add('session', `Navigate to index ${newIdx}`);
     // Spec §6.2: announce each exercise on arrival. Applies whether
-    // navigation came from voice ("Iron next") or tap (PREV/NEXT).
+    // navigation came from voice ("Coach next") or tap (PREV/NEXT).
     const ex = getCurrentExercise();
     if (ex) {
       const intro = delta > 0 ? 'Moving to ' : 'Going back to ';
@@ -2527,10 +2539,23 @@ const Voice = (() => {
   let _initialized = false;     // true after first BEGIN WORKOUT tap
   let _pauseAfterSpeak = false; // set by 'pause' command; onend honors it
 
-  // Known iOS misrecognitions of "iron" (spec §2.4 Layer 1 allow-list).
+  // Known iOS misrecognitions of "coach" (wake word). Includes:
+  // — common phonetic collisions ('couch', 'coats', 'coaches')
+  // — the 'hey coach' fallback plus its mis-hearings
+  // The list is conservative; add entries here as real transcripts
+  // surface via the diagnostic panel in testing.
   const WAKE_ALLOW_LIST = new Set([
-    'iron', 'ironing', 'irons', 'i ron', 'ironic', 'ironed',
-    'hiron', 'eye ron', 'i run', 'iron.', 'iran'
+    // Single-word forms
+    'coach', 'coaches', 'coached', 'coaching',
+    'couch', 'couches',
+    'coat', 'coats',
+    'cooch', 'coach.',
+    'koch', 'kotch',
+    // Two-word 'hey coach' variants
+    'hey coach', 'hey coaches', 'hey couch', 'hey coat',
+    'a coach', 'okay coach',
+    // Compound/prefix confusions iOS occasionally returns
+    'coachbuilder'
   ]);
 
   // ───── Wake-word detection ─────────────────────────────────────
@@ -2581,8 +2606,8 @@ const Voice = (() => {
     if (_levDistAtMostOne(firstTok, CONFIG.WAKE_WORD) <= 1) {
       return { matched: true, tail: tokens.slice(1).join(' ') };
     }
-    // Prefix form ("iron-next" in rare cases)
-    if (firstTok.startsWith('iron') && firstTok.length <= 6) {
+    // Prefix form ("coach-next" in rare cases, or "coaches" etc.)
+    if (firstTok.startsWith('coach') && firstTok.length <= 9) {
       return { matched: true, tail: tokens.slice(1).join(' ') };
     }
     return { matched: false };
@@ -2606,11 +2631,57 @@ const Voice = (() => {
     return { matched: false };
   }
 
+  // ───── Voice diagnostic overlay (user-visible) ─────────────────
+
+  let _diagOverlayTimer = null;
+
+  function _isDiagEnabled() {
+    try {
+      const settings = Storage.loadKey('settings') || {};
+      return !!settings.voiceDiagEnabled;
+    } catch(e) { return false; }
+  }
+
+  function _setDiagEnabled(on) {
+    try {
+      const settings = Storage.loadKey('settings') || {};
+      settings.voiceDiagEnabled = !!on;
+      Storage.saveKey('settings', settings);
+    } catch(e) {}
+    if (!on) _hideDiagOverlay();
+  }
+
+  function _showDiagResult(resultsList) {
+    if (!_isDiagEnabled()) return;
+    if (!resultsList || resultsList.length === 0) return;
+    const last = resultsList[resultsList.length - 1];
+    const overlay = document.getElementById('voice-diag-overlay');
+    const content = document.getElementById('voice-diag-content');
+    if (!overlay || !content) return;
+    let text = '';
+    for (let i = 0; i < last.length; i++) {
+      const t = last[i].transcript || '';
+      const conf = last[i].confidence;
+      const confStr = (conf && isFinite(conf)) ? `  [${(conf * 100).toFixed(0)}%]` : '';
+      text += `${i + 1}. "${t}"${confStr}\n`;
+    }
+    content.textContent = text.trimEnd();
+    overlay.style.display = 'block';
+    if (_diagOverlayTimer) clearTimeout(_diagOverlayTimer);
+    _diagOverlayTimer = setTimeout(() => _hideDiagOverlay(), 6000);
+  }
+
+  function _hideDiagOverlay() {
+    const overlay = document.getElementById('voice-diag-overlay');
+    if (overlay) overlay.style.display = 'none';
+    if (_diagOverlayTimer) { clearTimeout(_diagOverlayTimer); _diagOverlayTimer = null; }
+  }
+
   // ───── Command parser (Layer 1 subset) ─────────────────────────
 
   function _parseCommand(tail) {
     const t = (tail || '').trim().toLowerCase().replace(/[.,!?;]+$/g, '');
-    if (!t) return { cmd: 'bare' };  // bare "Iron" with nothing after
+    if (!t) return { cmd: 'bare' };  // bare wake word with nothing after
     // NEXT
     if (/^(next( exercise)?|move on|keep going)$/.test(t)) return { cmd: 'next' };
     // PREVIOUS
@@ -2674,7 +2745,7 @@ const Voice = (() => {
         return;
       case 'unknown':
       default:
-        _speak("I didn't catch that. Say Iron help for commands.");
+        _speak("I didn't catch that. Say Coach help for commands.");
         return;
     }
   }
@@ -2961,6 +3032,12 @@ const Voice = (() => {
     };
     r.onresult = (e) => {
       Diag.add('voice', 'Recognizer onresult');
+      // If voice diagnostic is on, show the raw transcripts on screen
+      // so the user can see what iOS actually heard. Invaluable when
+      // the wake word isn't being recognized — we can read exactly
+      // which tokens iOS returned and extend the allow-list or change
+      // the wake word based on real data.
+      _showDiagResult(e.results);
       const match = _findWakeWordInAlternatives(e.results);
       if (!match.matched) {
         // Silent: no wake word, just keep listening (spec §3.2)
@@ -3094,6 +3171,7 @@ const Voice = (() => {
     initOnSessionStart, shutdown, handleBadgeTap, restart, say,
     interruptSpeech, onVisibilityHidden, onVisibilityVisible,
     setPreferredVoiceByName, getPreferredVoiceName, getAllVoices,
+    isVoiceDiagEnabled: _isDiagEnabled, setVoiceDiagEnabled: _setDiagEnabled,
     __matchWakeWord: _matchWakeWord,
     __parseCommand: _parseCommand
   };
@@ -3129,7 +3207,17 @@ const VoiceTester = (() => {
   function _render() {
     const list = document.getElementById('voice-tester-list');
     const currentSpan = document.getElementById('voice-tester-current-name');
+    const toggleBtn = document.getElementById('voice-diag-toggle-btn');
     if (!list || !currentSpan) return;
+
+    // Diagnostic toggle button reflects current setting
+    if (toggleBtn) {
+      const on = Voice.isVoiceDiagEnabled();
+      toggleBtn.textContent = on ? 'ON' : 'OFF';
+      toggleBtn.style.background = on ? 'var(--ok)' : 'transparent';
+      toggleBtn.style.color = on ? '#000' : 'var(--text-2)';
+      toggleBtn.style.borderColor = on ? 'var(--ok)' : 'var(--border)';
+    }
 
     const voices = Voice.getAllVoices();
     const selectedName = Voice.getPreferredVoiceName();
@@ -3220,7 +3308,13 @@ const VoiceTester = (() => {
     return String(s).replace(/&/g,'&amp;').replace(/'/g,"&#39;").replace(/"/g,'&quot;');
   }
 
-  return { open, close, play, use };
+  function toggleDiag() {
+    const newState = !Voice.isVoiceDiagEnabled();
+    Voice.setVoiceDiagEnabled(newState);
+    _render();
+  }
+
+  return { open, close, play, use, toggleDiag };
 })();
 
 // ═══════════════════════════════════════════════════════════════
