@@ -580,3 +580,55 @@ The 1-2 second latency between "Iron next" and app response is inherent to iOS S
 4. Recognition should feel a bit more reliable than patch 0; still not instant but fewer silent failures.
 5. If no voice is acceptable, that's a platform limitation and we need to have the cloud-TTS conversation.
 
+
+### 2026-04-22 — Step 3 patch 2 (wake-word change + diagnostic overlay)
+
+**Wake word changed from "Iron" to "Coach".**
+
+Device testing of patch 1 surfaced a deeper issue: "iron" is a poor wake word for speech recognizers. The user (Southern American English) pronounces it as "I-urn" (one syllable, vowel-r-vowel-n). iOS transcribes that as "I run", "I earn", "Iran", or other words depending on context. The Levenshtein+allow-list matcher catches some but not all variants, and the underlying problem is that "iron" is a common English word with multiple regional pronunciations and many phonetic neighbors.
+
+After discussion of three robustness options (phonetic matching, different wake word, no wake word, push-to-talk), the user chose to change the wake word to "Coach". Reasoning:
+- "Coach" has a strong terminal 'ch' consonant that recognizers lock onto reliably across accents.
+- "Coach" is rarely spoken in normal conversation during a workout (lower false-positive rate than option 1's phonetic-class matcher).
+- "Coach" thematically matches a workout-app's role.
+- Single syllable, easy to say repeatedly, recognized consistently by major regions of English.
+- The "Hey Coach" variant pattern-matches Alexa/Siri but the user finds it cumbersome; sticking with single-word "Coach".
+
+Applied changes:
+- `CONFIG.WAKE_WORD` = `'coach'`, `CONFIG.WAKE_WORD_FALLBACK` = `'hey coach'`
+- `WAKE_ALLOW_LIST` rewritten with coach misrecognitions: `coach`, `coaches`, `coached`, `coaching`, `couch`, `couches`, `coat`, `coats`, `cooch`, `coach.`, `koch`, `kotch`, plus two-word variants `hey coach`, `hey coaches`, `hey couch`, `hey coat`, `a coach`, `okay coach`, plus `coachbuilder` for compound iOS recognitions.
+- Prefix-form fallback updated from `startsWith('iron') && length <= 6` to `startsWith('coach') && length <= 9`.
+- User-facing speech: "Say Coach help for commands" replaces "Say Iron help for commands".
+- "Iron Voice" brand name preserved in intro utterance and screen logo. Only the wake word itself changed.
+- 20/20 offline wake-word tests pass: catches `Coach`, `Couch`, `coat`, `hey coach`, `okay coach`, `koch`, `coaches`, `coaching`, plus Levenshtein-1 variants (`cosch`, `oach`); correctly rejects unrelated words (`caboose`, `cookie`, random sentences).
+
+**Voice diagnostic overlay (new debug tool).**
+
+A user-controlled diagnostic that displays the raw recognizer transcripts on screen so the user can see what iOS actually heard when a command doesn't trigger.
+
+How it works:
+- Setting `voiceDiagEnabled` added to `defaultSettings()` (defaults false).
+- Toggle button added to Voice Tester screen labeled "Show voice diagnostic overlay" with a clear OFF/ON indicator. Persists to localStorage.
+- When enabled, every `r.onresult` event populates a translucent overlay at the bottom of the workout screen showing all 5 alternatives the recognizer returned, each with confidence percentage. Auto-hides after 6 seconds.
+- Doesn't speak, doesn't interfere with the wake-word match flow — pure read-only diagnostic.
+- Use case: user says "Coach next", nothing happens. Toggles diagnostic on. Says "Coach next" again. Sees on screen "1. couch next [85%], 2. coach next [62%], 3. coaches next [40%], 4. cocoa next [28%], 5. cohash next [12%]." Now we know exactly what iOS heard and can refine the allow-list with real data, not guesses.
+
+The diagnostic also serves as a long-term tuning tool: if "coach" turns out to have other common misrecognitions we haven't seen yet, the user can capture them via the overlay rather than relying on me to predict them.
+
+**Implementation notes:**
+- New `Voice` private methods `_isDiagEnabled`, `_setDiagEnabled`, `_showDiagResult`, `_hideDiagOverlay`. Exposed publicly as `Voice.isVoiceDiagEnabled` and `Voice.setVoiceDiagEnabled`.
+- New `VoiceTester.toggleDiag()` flips the setting and re-renders the toggle button color/label.
+- Overlay HTML lives next to the banner-area, fixed-positioned at the bottom-right. Always rendered, display:none when off. Uses pointer-events:none so taps pass through.
+- Diag log captures the raw transcripts via the existing `Diag.add('voice', 'Recognizer onresult')` regardless of overlay state, so historical analysis is still possible via the Storage screen.
+
+**Version tag:** "VERSION 2.0.1 · STEP 3 · patch 2"
+
+**Test sequence:**
+1. Open Voice Tester. Verify the diagnostic toggle is present and OFF by default.
+2. BEGIN WORKOUT. Say "Coach next." App should respond immediately (or with the same ~1s iOS latency).
+3. If recognition is unreliable: tap voice badge to pause, return to Welcome, open Voice Tester, toggle diagnostic ON, BEGIN WORKOUT again. Now every spoken command shows raw transcripts on screen for 6 seconds. Capture what iOS actually hears for your "Coach" pronunciation; report back.
+4. Say "Coach next", "Coach previous", "Coach repeat", "Coach pause", "Coach help" — all should work.
+5. Say "Couch next" — should also work (allow-list catches the misrecognition).
+6. Say something with no wake word — app stays silent and listening.
+7. Confirm previous patch 1 fixes still work: "reps" pronounced as "repetitions", PREV/NEXT buttons announce destination, Samantha (or whichever voice) plays correctly.
+
