@@ -168,7 +168,6 @@ body {
 .banner {
   pointer-events: auto;
   padding: 10px 16px;
-  padding-top: max(10px, env(safe-area-inset-top));
   font-size: 13px;
   line-height: 1.4;
   display: flex;
@@ -178,6 +177,14 @@ body {
   flex-shrink: 0;
   z-index: 20;
   position: relative;
+}
+/* Only the first stacked banner consumes the safe-area notch padding. */
+#banner-area > .banner:first-child {
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+/* Stacked banners get a subtle separator. */
+#banner-area > .banner + .banner {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 .banner.info {
   background: rgba(224, 85, 0, 0.10);
@@ -1307,10 +1314,17 @@ body {
 <!-- ═══════════════════════════════════════════════════════════════
      BANNER AREA
      ═══════════════════════════════════════════════════════════════ -->
-<div id="banner-area" style="position:fixed;top:0;left:0;right:0;z-index:2000;pointer-events:none;"></div>
+<div id="banner-area" style="position:fixed;top:0;left:0;right:0;z-index:2000;pointer-events:none;display:flex;flex-direction:column;gap:0"></div>
 <div id="voice-diag-overlay" style="display:none;position:fixed;bottom:20px;left:12px;right:12px;z-index:1800;background:rgba(20,20,22,0.95);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;font-size:11px;color:var(--text);pointer-events:none;font-family:-apple-system,sans-serif;line-height:1.4">
   <div style="color:var(--accent);font-weight:700;letter-spacing:1px;font-size:9px;margin-bottom:4px">VOICE DIAGNOSTIC</div>
   <div id="voice-diag-content" style="white-space:pre-wrap;word-break:break-word;color:var(--text-2);font-size:11px"></div>
+</div>
+<div id="voice-history-overlay" style="display:none;position:fixed;inset:0;z-index:1900;background:rgba(0,0,0,0.85);align-items:center;justify-content:center;padding:24px" onclick="Voice.hideHistoryOverlay()">
+  <div style="max-width:480px;width:100%;max-height:80vh;overflow-y:auto;background:var(--surface-1);border:1px solid var(--accent);border-radius:14px;padding:18px 18px 16px 18px" onclick="event.stopPropagation()">
+    <div style="color:var(--accent);font-weight:700;letter-spacing:1.5px;font-size:11px;margin-bottom:10px">RECENT VOICE EVENTS</div>
+    <div id="voice-history-content" style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--text-2);line-height:1.55;white-space:pre-wrap;word-break:break-word"></div>
+    <div style="margin-top:14px;text-align:center"><button onclick="Voice.hideHistoryOverlay()" style="background:transparent;border:1px solid var(--border);color:var(--text-2);padding:6px 18px;border-radius:8px;font-size:12px;letter-spacing:1px;cursor:pointer">CLOSE</button></div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -1319,7 +1333,7 @@ body {
 <div class="screen screen-center" id="screen-welcome">
   <div class="logo">IRON<br>VOICE</div>
   <div class="logo-sub">Workout Assistant</div>
-  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 3 · patch 3</div>
+  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 3 · patch 4</div>
   <div class="welcome-plan-info" id="welcome-plan-info">Loading plan…</div>
   <button class="btn-primary" onclick="Session.start()">BEGIN WORKOUT</button>
   <div class="btn-row">
@@ -2293,9 +2307,17 @@ const Session = (() => {
   function goTo(index) {
     if (!_data || !_plan) return;
     if (index < 0 || index >= _plan.exercises.length) return;
+    const sameIndex = _data.currentIndex === index;
     _data.currentIndex = index;
     heartbeat();
     WorkoutUI.render();
+    Diag.add('session', `Jump to index ${index}`);
+    // Announce the destination — same behavior as navigate() per
+    // spec §6.2. Skip if user tapped the exercise they were already on.
+    if (!sameIndex) {
+      const ex = getCurrentExercise();
+      if (ex) Voice.say('Going to ' + _describeForSpeech(ex));
+    }
   }
 
   function logSet() {
@@ -2691,7 +2713,12 @@ const Voice = (() => {
     // HELP
     if (/^help$/.test(t)) return { cmd: 'help' };
     // PAUSE
-    if (/^(pause|stop listening|mute)$/.test(t)) return { cmd: 'pause' };
+    // PAUSE — iOS frequently mis-hears "pause" as "paul" or "paul's"
+    // (the soft "z" sounds like a possessive 's, the "aw" vowel matches
+    // the name). "paws" is another common mis-hearing. Extend tolerantly.
+    if (/^(pause|pause's|paus|paul|paul's|pauls|paws|paw's|stop listening|mute)$/.test(t)) {
+      return { cmd: 'pause' };
+    }
     return { cmd: 'unknown', text: t };
   }
 
@@ -3086,20 +3113,26 @@ const Voice = (() => {
   // gesture is required by iOS for both mic permission and TTS warmup.
   function initOnSessionStart() {
     _initialized = true;
-    if (!navigator.onLine) {
-      UI.raiseOfflineBanner();
-      Diag.add('voice', 'Offline at session start — voice disabled');
-      State.transition(STATES.ERROR, 'offline');
-      return;
-    }
     _ensureVoice();
     // Warm TTS inside the user gesture so later utterances aren't
-    // swallowed (spec §3.2).
+    // swallowed (spec §3.2). TTS works offline; recognition does not.
     try {
       const warmup = new SpeechSynthesisUtterance(' ');
       warmup.volume = 0;
       window.speechSynthesis.speak(warmup);
     } catch(e) {}
+    if (!navigator.onLine) {
+      // Offline: TTS still works (announcements, intros) but the
+      // recognizer cannot stream audio to Apple's servers. We don't
+      // start the recognizer; the workout proceeds tap-driven.
+      Diag.add('voice', 'Offline at session start — recognition disabled, TTS active');
+      UI.raiseBanner('voice-offline', 'warn',
+        'No network — voice commands paused. Tap controls still work; voice will resume when online.',
+        'Dismiss', null,
+        { transient: true, autoDismissMs: 8000 });
+      State.transition(STATES.IDLE, 'offline at start');
+      return;
+    }
     _wantListening = true;
     State.transition(STATES.LISTENING, 'voice init');
     _startRecognizer();
@@ -3153,17 +3186,53 @@ const Voice = (() => {
   }
 
   // Called on visibilitychange (handled in Lifecycle).
+  // When the page is hidden, we tear down the recognizer entirely
+  // rather than just stopping it — iOS suspension can leave a stopped
+  // recognizer in a state where start() succeeds but onresult never
+  // fires. A fresh instance on resume avoids this trap.
   function onVisibilityHidden() {
-    if (_recActive) {
-      _stopRecognizer();
-      Diag.add('voice', 'Visibility hidden — recognizer stopped');
+    if (_rec) {
+      try { _rec.abort(); } catch(e) {}
+      _rec = null;
+      _recActive = false;
+      Diag.add('voice', 'Visibility hidden — recognizer torn down');
     }
+    _stopWarmKeep();
   }
+
   function onVisibilityVisible() {
-    if (_wantListening && State.get() === STATES.LISTENING) {
-      Diag.add('voice', 'Visibility visible — restarting recognizer');
-      setTimeout(() => _startRecognizer(), 200);
+    // Only auto-resume if the user was actively listening when hidden.
+    // If they were paused (IDLE) or in ERROR, leave them where they are.
+    if (!_initialized || !_wantListening) return;
+    if (!Session.getData()) return;  // session ended while hidden
+    if (!navigator.onLine) {
+      Diag.add('voice', 'Visibility visible but offline — waiting for online event');
+      return;
     }
+    Diag.add('voice', 'Visibility visible — rebuilding recognizer');
+    // Allow a moment for iOS to settle, then rebuild and chime.
+    setTimeout(() => {
+      _resumeListeningWithChime('resumed');
+    }, 250);
+  }
+
+  // Internal: rebuild a fresh recognizer, transition to LISTENING,
+  // and play the audible "Listening" cue so the user knows voice is back.
+  // Used by visibility-resume, online-resume, and pause→resume paths.
+  function _resumeListeningWithChime(reason) {
+    if (!_initialized) return;
+    if (!Session.getData()) return;
+    _wantListening = true;
+    if (State.get() !== STATES.LISTENING) {
+      State.transition(STATES.LISTENING, `resume: ${reason}`);
+    }
+    _startWarmKeep();
+    _startRecognizer();
+    // Brief audible cue. _speak transitions to SPEAKING and back to
+    // LISTENING via onend, which will start the recognizer again.
+    // We just-started it above; that's a redundant call but the
+    // _recActive guard makes it a no-op.
+    _speak('Listening.');
   }
 
   // Public speak — used by Session for intro/announcements. Respects
@@ -3173,12 +3242,76 @@ const Voice = (() => {
     _speak(text, onDone);
   }
 
+  // Network came back. If we're in a session and were waiting for it,
+  // resume listening with the audible chime.
+  function onOnline() {
+    if (!_initialized) return;
+    if (!Session.getData()) return;
+    UI.clearBanner('voice-offline');
+    if (State.get() === STATES.LISTENING && _recActive) return;  // already running
+    Diag.add('voice', 'Network online — resuming voice loop');
+    _resumeListeningWithChime('online');
+  }
+
+  // Network went away. Recognition can't function without it; suspend.
+  // TTS continues to work because it's local.
+  function onOffline() {
+    if (!_initialized) return;
+    if (!Session.getData()) return;
+    Diag.add('voice', 'Network offline — suspending recognizer (TTS still active)');
+    _wantListening = false;
+    _stopRecognizer();
+    _stopWarmKeep();
+    if (State.get() === STATES.LISTENING || State.get() === STATES.SPEAKING) {
+      State.transition(STATES.IDLE, 'offline');
+    }
+    UI.raiseBanner('voice-offline', 'warn',
+      'Network lost — voice commands paused. Will resume when online.',
+      'Dismiss', null,
+      { transient: false });  // sticky until network returns
+  }
+
+  // Returns the last N voice events for the long-press history view.
+  // Pulls from the Diag ring buffer, filters to voice category, and
+  // formats one entry per line.
+  function getRecentVoiceEvents(n) {
+    const all = Diag.all();
+    const voice = all.filter(e => e.cat === 'voice');
+    const last = voice.slice(-Math.max(1, n || 5));
+    return last.map(e => {
+      const t = new Date(e.t);
+      const hh = String(t.getHours()).padStart(2, '0');
+      const mm = String(t.getMinutes()).padStart(2, '0');
+      const ss = String(t.getSeconds()).padStart(2, '0');
+      const extra = e.extra ? ` ${typeof e.extra === 'string' ? e.extra : JSON.stringify(e.extra)}` : '';
+      return `${hh}:${mm}:${ss}  ${e.msg}${extra}`;
+    });
+  }
+
+  function showHistoryOverlay() {
+    const overlay = document.getElementById('voice-history-overlay');
+    const content = document.getElementById('voice-history-content');
+    if (!overlay || !content) return;
+    const events = getRecentVoiceEvents(12);
+    content.textContent = events.length === 0
+      ? '(no voice events yet)'
+      : events.join('\n');
+    overlay.style.display = 'flex';
+  }
+
+  function hideHistoryOverlay() {
+    const overlay = document.getElementById('voice-history-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
   // Expose a small testable surface. Helpers marked __ are for tests.
   return {
     initOnSessionStart, shutdown, handleBadgeTap, restart, say,
     interruptSpeech, onVisibilityHidden, onVisibilityVisible,
+    onOnline, onOffline,
     setPreferredVoiceByName, getPreferredVoiceName, getAllVoices,
     isVoiceDiagEnabled: _isDiagEnabled, setVoiceDiagEnabled: _setDiagEnabled,
+    getRecentVoiceEvents, showHistoryOverlay, hideHistoryOverlay,
     __matchWakeWord: _matchWakeWord,
     __parseCommand: _parseCommand
   };
@@ -4223,8 +4356,16 @@ function init() {
   if (Preflight.isOffline()) UI.raiseOfflineBanner();
 
   // Online/offline listeners
-  window.addEventListener('online',  () => { Diag.add('lifecycle', 'Online');  UI.clearBanner('offline'); });
-  window.addEventListener('offline', () => { Diag.add('lifecycle', 'Offline'); UI.raiseOfflineBanner(); });
+  window.addEventListener('online',  () => {
+    Diag.add('lifecycle', 'Online');
+    UI.clearBanner('offline');
+    Voice.onOnline();
+  });
+  window.addEventListener('offline', () => {
+    Diag.add('lifecycle', 'Offline');
+    UI.raiseOfflineBanner();
+    Voice.onOffline();
+  });
 
   document.addEventListener('visibilitychange', () => {
     Diag.add('lifecycle', `visibility → ${document.visibilityState}`);
@@ -4254,6 +4395,36 @@ function init() {
     Diag.add('lifecycle', 'beforeunload');
     Diag.save();
   });
+
+  // Long-press the voice badge (≥600ms) to show recent voice events.
+  // Useful diagnostic when something doesn't recognize correctly.
+  // Uses pointer events to handle both touch and mouse uniformly.
+  (function attachVoiceBadgeLongPress() {
+    const badge = document.getElementById('voice-status-badge');
+    if (!badge) return;
+    let timer = null;
+    let triggered = false;
+    const PRESS_MS = 600;
+    function start(e) {
+      triggered = false;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        triggered = true;
+        Voice.showHistoryOverlay();
+      }, PRESS_MS);
+    }
+    function cancel() {
+      if (timer) { clearTimeout(timer); timer = null; }
+    }
+    badge.addEventListener('pointerdown', start);
+    badge.addEventListener('pointerup', cancel);
+    badge.addEventListener('pointerleave', cancel);
+    badge.addEventListener('pointercancel', cancel);
+    // Suppress the click-tap-to-pause if a long-press fired.
+    badge.addEventListener('click', (e) => {
+      if (triggered) { e.stopImmediatePropagation(); e.preventDefault(); triggered = false; }
+    }, true);
+  })();
 
   // Periodic diag save
   setInterval(() => Diag.save(), 30000);
