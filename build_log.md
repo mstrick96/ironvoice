@@ -648,3 +648,76 @@ The hyphenated form coerces TTS engines to treat the word as a single phonetic t
 **Version tag:** "VERSION 2.0.1 · STEP 3 · patch 3"
 
 **Test:** Begin a workout. Listen to "Iron Voice ready..." intro. Should now say "I-urn voice ready" — pronounced as natural single-syllable "iron."
+
+### 2026-04-25 — Step 3 patch 4 (hardening pass)
+
+**Context.** Device testing of patch 3 revealed that several Step 2/3 behaviors weren't holding up in real use: banner overlap was back (showed up at top of screen with red mic-permission banner stacked on the orange offline banner — illegible), phone-lock-then-unlock left the recognizer dead with no auto-recovery, switching to another app and back required tapping a Retry button buried inside an overlapping banner, "Coach pause" wasn't being recognized (iOS heard "Coach Paul" or "Coach Paul's"), the offline banner was suppressing all voice when only recognition needed network, and tapping an exercise in the list jumped without announcing the destination. The user agreed to a focused infrastructure-hardening pass instead of another series of small patches, on the principle that compounding patches tends to introduce more bugs than they fix.
+
+Five infrastructure fixes plus a long-press voice history view. No new features. No spec changes. No Step 4 prep.
+
+**Fix 1: Banner stacking.** Banner-area is now a vertical flex column (`display:flex; flex-direction:column; gap:0`). Each banner renders as its own row. CSS scoped: `#banner-area > .banner:first-child` gets the safe-area top padding (notch); subsequent stacked banners get a 1px subtle separator between them. The MutationObserver from Step 2 patch 2 already syncs `--banner-h` from `area.offsetHeight`, which now correctly reports total stacked height. Multiple banners now stack cleanly instead of layering on top of each other.
+
+**Fix 2: Lifecycle recovery — full recognizer rebuild on resume.** Previous behavior: `onVisibilityHidden` called `_stopRecognizer()`; `onVisibilityVisible` called `_startRecognizer()` after 200ms. Problem: after iOS suspension (lock screen, backgrounded for any length of time), a stopped recognizer can be in a state where `start()` succeeds silently but `onresult` never fires.
+
+New behavior: `onVisibilityHidden` aborts and tears down the recognizer entirely (`_rec.abort(); _rec = null; _recActive = false`). Warm-keep is also stopped. On `onVisibilityVisible`, after a 250ms settle, calls new helper `_resumeListeningWithChime('resumed')` which builds a fresh recognizer, transitions to LISTENING, restarts warm-keep, and speaks a brief "Listening." cue so the user knows voice is back without having to test it. Skips the resume if the user is in IDLE/ERROR (was paused) or no session is active.
+
+**Fix 3: Online/offline scope correction.** Previous behavior: any offline state suppressed all voice via raising offline banner and forcing ERROR state. Wrong — TTS works fully offline (it's local synthesis); only recognition needs Apple's servers.
+
+New behavior:
+- `initOnSessionStart()` always activates TTS regardless of network. If offline, recognition isn't started; a transient warn banner explains "voice commands paused" (auto-dismiss 8s); state transitions to IDLE rather than ERROR.
+- New `Voice.onOffline()` handler suspends recognition and warm-keep, transitions LISTENING/SPEAKING → IDLE, raises a sticky banner. TTS continues to work for any further announcements.
+- New `Voice.onOnline()` handler clears the offline banner and calls `_resumeListeningWithChime('online')` to re-establish recognition with audible confirmation.
+- Lifecycle `online`/`offline` event listeners now call `Voice.onOnline()` and `Voice.onOffline()` respectively in addition to their existing UI banner work.
+
+**Fix 4: `Session.goTo()` announces destination.** Previously, tapping an exercise in the Exercises tab jumped to it silently while voice "Coach next" announced. New behavior: `goTo()` calls `Voice.say('Going to ' + _describeForSpeech(ex))` after the jump. Skips if the user tapped the exercise they were already on (no-op detection via `sameIndex` flag). Diag log entry added: `Jump to index N`.
+
+**Fix 5: Pause command — extended regex.** Diagnostic overlay confirmed iOS hears "pause" as "paul" or "paul's" (the soft "z" sounds like a possessive 's). Updated regex from `/^(pause|stop listening|mute)$/` to `/^(pause|pause's|paus|paul|paul's|pauls|paws|paw's|stop listening|mute)$/`. 18/18 offline parser tests pass — all variants match, "paul newman" and "pawn" correctly rejected so we don't accidentally pause on unrelated speech.
+
+**Long-press voice history view.** Long-press the voice status badge for ≥600ms to open a centered overlay listing the last ~12 voice events with timestamps. Format: `HH:MM:SS  message  extra-data-as-json`. Useful for diagnosing future recognition issues without having to navigate to the Storage screen mid-workout. Tap outside the modal box or the CLOSE button to dismiss.
+
+Implementation: pointer events (touch + mouse uniformly), 600ms timer cancels on pointerup/leave/cancel. If the long-press fires, the subsequent click is suppressed via `stopImmediatePropagation` so the badge's normal tap-to-pause behavior doesn't fire.
+
+**Implementation summary:**
+- Banner CSS: ~10 lines added/changed
+- Voice module: new helpers `_resumeListeningWithChime`, `onOnline`, `onOffline`, `getRecentVoiceEvents`, `showHistoryOverlay`, `hideHistoryOverlay`. Existing `onVisibilityHidden`/`onVisibilityVisible` rewritten.
+- Session module: `goTo()` extended.
+- Voice module exports updated.
+- Lifecycle: long-press handler attached to voice-status-badge after DOMContentLoaded; online/offline event listeners now also call Voice handlers.
+- HTML: voice-history-overlay div added next to banner-area and voice-diag-overlay.
+
+**Version tag:** `VERSION 2.0.1 · STEP 3 · patch 4`
+
+**File size:** 4,472 lines.
+
+**Test sequence (the original Step 3 list, re-run):**
+1. Launch and BEGIN WORKOUT — intro plays correctly, badge pulses Listening.
+2. Say "Coach next" / "Coach previous" / "Coach repeat" / "Coach help" — work as before.
+3. Say "Coach pause" — should now work. Test "Coach Paul" too — should also pause (intentional fallback).
+4. Tap an exercise in the Exercises tab — should now announce the destination via Voice.say.
+5. Tap PREV / NEXT buttons — already worked, should still work.
+6. Press the lock button to lock the screen. Wait 30 seconds. Unlock. App should rebuild the recognizer and play "Listening." within ~1 second of unlock.
+7. Switch to another app (Audible, Safari, anything). Wait 30 seconds. Switch back. Should auto-recover with "Listening." cue.
+8. Toggle airplane mode ON during a workout. Banner appears: "Network lost — voice commands paused. Will resume when online." Recognition stops; TTS continues if the app says anything (it shouldn't in steady state).
+9. Toggle airplane mode OFF. Banner disappears. App says "Listening." Recognition resumes.
+10. Long-press the voice badge for ~1 second. History overlay appears showing recent voice events with timestamps. Tap outside the box or CLOSE to dismiss.
+11. Two banners can now stack without overlap. Easiest way to test: trigger a plan-change banner while a session is active and offline (which raises the offline banner). Both should be readable.
+
+
+### 2026-04-28 — Step 3 patch 5 (banner stacking — exercise overlap fix)
+
+**Problem.** Patch 4's flex-column banner stacking made banners visually stack but didn't prevent the second banner from overlapping the workout-header / exercise name on the workout screen. User reported the overlap occurs after lock-screen unlock (where two banners briefly stack: one for resume, one for permission/audio status) and during airplane-mode-on (where the offline banner stacks under any other active banner).
+
+**Root cause analysis.** The `.screen` rule uses `padding-top: max(var(--banner-h), 40px, env(safe-area-inset-top))`. The MutationObserver updates `--banner-h` correctly when banners are added. But on iOS Safari, when a flex column container's `padding-top` changes mid-render, the inner content sometimes does not reflow predictably — particularly when the inner content has its own flex layout with `overflow: hidden` (which `.workout-body` does). The exercise name's apparent Y coordinate stays put while banners grow downward over it.
+
+**Fix.** Apply the banner offset directly to `.workout-header` via `margin-top: max(0px, calc(var(--banner-h) - 40px))`. This is explicit and bypasses the chain of flex-padding inheritance that iOS was failing to recompute. When `--banner-h` is small (no banners), the calc evaluates to 0 and the header sits at its normal position (controlled by the screen's existing safe-area padding-top of 40px). When banners stack and `--banner-h` grows past 40px, the difference is added as margin-top, pushing the header (and all content below it) down to clear the banners.
+
+The user offered a fallback option of "let banners just overwrite whatever is under them" — rejected because it would hide the exercise card entirely, and because Step 4/6/7 will add more banners that would worsen the problem.
+
+**Discussion of when this matters.** The fix is specifically for the workout screen because that's the one with the dense vertical layout (exercise name + value buttons + set dots + coaching note + nav buttons + tabs). Other screens (Welcome, Plan Editor, Storage, Voice Tester, Summary) are either centered (so they auto-rebalance) or scrollable (Plan Editor, Storage). They handle banner-h growth correctly via the existing `.screen` padding-top rule. The workout screen was the one outlier.
+
+**Version tag:** `VERSION 2.0.1 · STEP 3 · patch 5`
+
+**File size:** 4,478 lines.
+
+**Test:** Lock the phone manually during a workout. Unlock. The two banners that briefly appear should stack cleanly above the workout-header without overlapping the exercise name. Same test for airplane mode toggle.
+
