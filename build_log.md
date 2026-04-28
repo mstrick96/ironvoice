@@ -632,3 +632,19 @@ The diagnostic also serves as a long-term tuning tool: if "coach" turns out to h
 6. Say something with no wake word — app stays silent and listening.
 7. Confirm previous patch 1 fixes still work: "reps" pronounced as "repetitions", PREV/NEXT buttons announce destination, Samantha (or whichever voice) plays correctly.
 
+
+### 2026-04-25 — Step 3 patch 3 (Iron pronunciation fix)
+
+**Problem:** TTS voices (Samantha confirmed, others likely the same) pronounce the spelling "Iron" as two distinct syllables — "I-RON" — which sounds old-fashioned/wrong to American ears. The natural English pronunciation is one syllable, "I-urn."
+
+**Fix:** Two whole-word substitutions added to `_normalizeForSpeech`:
+- `Iron` → `I-urn`
+- `iron` → `i-urn`
+
+The hyphenated form coerces TTS engines to treat the word as a single phonetic token rather than spelling it out. Brand name on screen ("IRON VOICE" logo, "Iron Voice ready" intro text in source) is unchanged — only the TTS output text is rewritten before being passed to `speechSynthesis.speak()`.
+
+**Why hyphen rather than just "iurn":** Tested mentally against typical TTS behavior — the hyphenated form is more reliable across voices because TTS engines have explicit handling for hyphenated phonetic spellings. If Samantha or another voice still pronounces this oddly on device, alternative spellings to try are `eye-urn` (more readable) or `ahy-ern` (closer to dictionary IPA).
+
+**Version tag:** "VERSION 2.0.1 · STEP 3 · patch 3"
+
+**Test:** Begin a workout. Listen to "Iron Voice ready..." intro. Should now say "I-urn voice ready" — pronounced as natural single-syllable "iron."
