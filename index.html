@@ -1319,7 +1319,7 @@ body {
 <div class="screen screen-center" id="screen-welcome">
   <div class="logo">IRON<br>VOICE</div>
   <div class="logo-sub">Workout Assistant</div>
-  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 3 · patch 2</div>
+  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 3 · patch 3</div>
   <div class="welcome-plan-info" id="welcome-plan-info">Loading plan…</div>
   <button class="btn-primary" onclick="Session.start()">BEGIN WORKOUT</button>
   <div class="btn-row">
@@ -2883,6 +2883,13 @@ const Voice = (() => {
     s = s.replace(/\bsec\b/gi, 'seconds');
     // Bike levels written as "L1" / "L2" etc.
     s = s.replace(/\bL(\d+)\b/g, 'level $1');
+    // "Iron" → phonetic form. Default TTS voices (including Samantha)
+    // say "I-RON" as two distinct syllables when given the spelling
+    // "iron"; users hear it as wrong/old-fashioned. Phonetic form
+    // "I-urn" coerces the engine into the natural single-syllable
+    // pronunciation. Brand name on screen stays "Iron Voice".
+    s = s.replace(/\bIron\b/g, 'I-urn');
+    s = s.replace(/\biron\b/g, 'i-urn');
     return s;
   }
 
