@@ -58,7 +58,7 @@ body {
   display: none;
   flex-direction: column;
   padding: 0 28px;
-  padding-top: max(var(--banner-h), 40px, env(safe-area-inset-top));
+  padding-top: max(40px, env(safe-area-inset-top));
   padding-bottom: max(16px, env(safe-area-inset-bottom));
   overflow-y: auto;
 }
@@ -177,6 +177,10 @@ body {
   flex-shrink: 0;
   z-index: 20;
   position: relative;
+  /* Solid base background so banners fully cover screen content
+     underneath. Each .info/.warn/.err variant overrides this with a
+     solid tinted version of the same idea. */
+  background: #1a1a1c;
 }
 /* Only the first stacked banner consumes the safe-area notch padding. */
 #banner-area > .banner:first-child {
@@ -187,18 +191,18 @@ body {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 .banner.info {
-  background: rgba(224, 85, 0, 0.10);
-  border-bottom: 1px solid rgba(224, 85, 0, 0.20);
-  color: var(--text-2);
+  background: #1f1814;
+  border-bottom: 1px solid rgba(224, 85, 0, 0.40);
+  color: var(--accent);
 }
 .banner.warn {
-  background: rgba(255, 213, 79, 0.10);
-  border-bottom: 1px solid rgba(255, 213, 79, 0.25);
+  background: #1f1d10;
+  border-bottom: 1px solid rgba(255, 213, 79, 0.45);
   color: var(--warn);
 }
 .banner.err {
-  background: rgba(255, 82, 82, 0.10);
-  border-bottom: 1px solid rgba(255, 82, 82, 0.25);
+  background: #1f1010;
+  border-bottom: 1px solid rgba(255, 82, 82, 0.55);
   color: var(--err);
 }
 .banner button {
@@ -1314,7 +1318,7 @@ body {
 <!-- ═══════════════════════════════════════════════════════════════
      BANNER AREA
      ═══════════════════════════════════════════════════════════════ -->
-<div id="banner-area" style="position:fixed;top:0;left:0;right:0;z-index:2000;pointer-events:none;display:flex;flex-direction:column;gap:0"></div>
+<div id="banner-area" style="position:fixed;top:0;left:0;right:0;z-index:2000;pointer-events:none;display:flex;flex-direction:column;gap:0;transform:translateZ(0);isolation:isolate"></div>
 <div id="voice-diag-overlay" style="display:none;position:fixed;bottom:20px;left:12px;right:12px;z-index:1800;background:rgba(20,20,22,0.95);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;font-size:11px;color:var(--text);pointer-events:none;font-family:-apple-system,sans-serif;line-height:1.4">
   <div style="color:var(--accent);font-weight:700;letter-spacing:1px;font-size:9px;margin-bottom:4px">VOICE DIAGNOSTIC</div>
   <div id="voice-diag-content" style="white-space:pre-wrap;word-break:break-word;color:var(--text-2);font-size:11px"></div>
@@ -1333,7 +1337,7 @@ body {
 <div class="screen screen-center" id="screen-welcome">
   <div class="logo">IRON<br>VOICE</div>
   <div class="logo-sub">Workout Assistant</div>
-  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 3 · patch 6</div>
+  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 3 · patch 7</div>
   <div class="welcome-plan-info" id="welcome-plan-info">Loading plan…</div>
   <button class="btn-primary" onclick="Session.start()">BEGIN WORKOUT</button>
   <div class="btn-row">

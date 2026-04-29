@@ -746,3 +746,30 @@ Each pass uses `getBoundingClientRect().height` (more reliable than `offsetHeigh
 Adding banners in Steps 4, 6, or 7 doesn't require any of this code to change. New banners will participate in the same flex stacking automatically.
 
 **Version tag:** `VERSION 2.0.1 · STEP 3 · patch 6`
+
+### 2026-04-29 — Step 3 patch 7 (banner overlap — opaque approach, finally correct)
+
+**Three failed attempts taught the actual problem.** Patches 5, 6 all tried to move screen content out from under banners by adjusting padding-top and margin offsets. That approach kept failing for two compounding reasons that I should have identified earlier:
+
+1. The translucent `rgba(...)` backgrounds on banners let underlying screen content show through — even when banners were rendering in the correct Z position above the screen, the workout text and badge were visible through them. What looked like "overlap" wasn't the workout-header positioned wrong; it was the workout-header showing through translucent banner overlays.
+
+2. The voice-status-badge has an animated `transform: scale()` on its inner dot (the LISTENING pulse). On iOS Safari, animated transforms create their own GPU compositor layers that can paint above sibling content with higher z-index. This is a documented iOS Safari rendering behavior — the transform-induced layer escapes the normal stacking-context rules.
+
+The user explicitly suggested an opaque approach in an earlier message and I deferred it because I thought layout reflow was cleaner. Three patches later, the user was right.
+
+**Patch 7 fixes:**
+
+- **Banner backgrounds are now opaque.** `.banner` base background is `#1a1a1c` (matches surface-1, fully opaque). Each variant (info/warn/err) overrides with a solid tinted version: `#1f1814` (info, slight orange tint), `#1f1d10` (warn, slight yellow tint), `#1f1010` (err, slight red tint). All fully opaque. Whatever is underneath is completely covered.
+- **Banner-area forced onto its own GPU layer** via `transform: translateZ(0); isolation: isolate` inline. This prevents the animated voice-status-badge transform from escaping its parent stacking context and painting above the banners. Tested mental model: the badge's GPU layer now stays nested under the banner-area's GPU layer.
+- **Reverted screen padding-top to ignore --banner-h.** Since banners now cover content rather than push it down, no offset variable is needed at the screen level. `.screen { padding-top: max(40px, env(safe-area-inset-top)); }` — clean and unconditional.
+- **Banner-h variable still computed** by the MutationObserver and kept for diagnostics, but no CSS rule consumes it any more. Removing it entirely would be cleaner; deferring that cleanup since it's harmless.
+
+**Trade-offs:**
+- Workout content under a banner is no longer visible. User has to dismiss the banner (or wait for transient banners' auto-dismiss) to see what's hidden.
+- For sticky banners (offline, mic-permission), the user effectively loses access to the top portion of the workout-header (the IRON VOICE brand text and the voice-status-badge) until the banner clears. The HOME button is also covered. The user can still tap PREV/NEXT/END since those are below the banner.
+- This trade-off is the user's explicit choice ("perhaps you should reconsider my earlier suggestion"). Acceptable because the banners that stick are exactly the ones the user needs to act on (mic permission, offline status).
+
+**Why this is final.** No layout reflow, no measurement timing, no flex-padding inheritance chain. Adding banners in Steps 4/6/7 won't introduce overlap regressions because the architecture is now: banners paint over everything, period.
+
+**Version tag:** `VERSION 2.0.1 · STEP 3 · patch 7`
+
