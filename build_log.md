@@ -721,3 +721,28 @@ The user offered a fallback option of "let banners just overwrite whatever is un
 
 **Test:** Lock the phone manually during a workout. Unlock. The two banners that briefly appear should stack cleanly above the workout-header without overlapping the exercise name. Same test for airplane mode toggle.
 
+
+### 2026-04-29 — Step 3 patch 6 (banner overlap — fixed properly)
+
+**What I got wrong in patch 5.** I added `margin-top: max(0px, calc(var(--banner-h) - 40px))` to `.workout-header` **without removing** the existing `padding-top: max(var(--banner-h), 40px, env(safe-area-inset-top))` on `.screen`. Both rules were depending on the same `--banner-h` variable. With two banners totaling ~167px height, the screen padding-top contributed 167px AND the header margin-top contributed 127px. Total header offset: 294px. The header was being pushed *too far* down — but only when a banner was tall (notch + multiline text). On a single small banner, the over-push was 7-12px and looked roughly right.
+
+Patch 6 removes the margin-top hack from `.workout-header`, restoring the single-source-of-truth approach where `.screen` padding-top alone handles banner offset.
+
+**Improved measurement reliability.** The remaining problem was that `area.offsetHeight` was sometimes read on iOS Safari before text reflow had finalized — long banners with text wrapping returned an underestimated height on first measurement, leaving `--banner-h` set lower than it should be. The user's screenshots showed banners that visibly wrapped to two lines but `--banner-h` had captured only the single-line height.
+
+Three measurement passes now run for every banner change:
+- Immediate via `requestAnimationFrame`
+- After 50ms (catches text reflow)
+- After 200ms (catches font/image swaps and any iOS layout finalization)
+
+Each pass uses `getBoundingClientRect().height` (more reliable than `offsetHeight` for fixed-positioned flex containers on iOS Safari) and overwrites `--banner-h` with the latest measurement. The MutationObserver also now triggers on `characterData` changes (in case banner text is updated in place rather than replaced) and there's a `window.resize` handler that re-syncs when the viewport changes (orientation, keyboard show/hide).
+
+**Why this should be the last banner patch.** The architecture is now:
+- One DOM container (`#banner-area`) holds all banners as flex children
+- One CSS variable (`--banner-h`) tracks total stacked height, measured via three robust passes
+- One CSS rule (`.screen` `padding-top`) consumes that variable to push all screen content down
+- No per-screen overrides, no margin-top hacks, no double-offset risk
+
+Adding banners in Steps 4, 6, or 7 doesn't require any of this code to change. New banners will participate in the same flex stacking automatically.
+
+**Version tag:** `VERSION 2.0.1 · STEP 3 · patch 6`

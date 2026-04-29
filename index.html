@@ -252,12 +252,6 @@ body {
   padding: 10px 20px 8px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
-  /* Explicit reflow: when stacked banners grow --banner-h, the header
-     and everything below it move down. The screen's own padding-top
-     handles the safe-area when no banners are present; this margin
-     handles any additional banner height beyond that.
-     Use max(0, ...) to avoid negative margins when banners are absent. */
-  margin-top: max(0px, calc(var(--banner-h) - 40px));
 }
 .workout-header-row-top {
   display: flex;
@@ -1339,7 +1333,7 @@ body {
 <div class="screen screen-center" id="screen-welcome">
   <div class="logo">IRON<br>VOICE</div>
   <div class="logo-sub">Workout Assistant</div>
-  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 3 · patch 5</div>
+  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 3 · patch 6</div>
   <div class="welcome-plan-info" id="welcome-plan-info">Loading plan…</div>
   <button class="btn-primary" onclick="Session.start()">BEGIN WORKOUT</button>
   <div class="btn-row">
@@ -2086,13 +2080,27 @@ const UI = (() => {
     }
   }
   function syncBannerOffsetNow() {
-    // Belt-and-braces: also fire a direct sync after rAF so iOS Safari
-    // has definitely completed layout before we read offsetHeight.
-    requestAnimationFrame(() => {
+    // iOS Safari sometimes finalizes text layout after the rAF tick,
+    // which means the first offsetHeight read can be too short — long
+    // banner messages haven't wrapped yet. Solution: measure on rAF
+    // (immediate), again at 50ms (after text reflow), and again at
+    // 200ms (after any image / font swaps). Each measurement updates
+    // --banner-h to the largest known value within the window. Once
+    // any banner removes/changes, the next measurement cycle resets it.
+    function measure() {
       const area = document.getElementById('banner-area');
-      if (!area) return;
-      const h = area.offsetHeight;
+      if (!area) return 0;
+      // getBoundingClientRect is more reliable than offsetHeight for
+      // fixed-positioned elements on iOS Safari.
+      const rect = area.getBoundingClientRect();
+      const h = Math.ceil(rect.height);
       document.documentElement.style.setProperty('--banner-h', h > 0 ? h + 'px' : '0px');
+      return h;
+    }
+    requestAnimationFrame(() => {
+      measure();
+      setTimeout(measure, 50);
+      setTimeout(measure, 200);
     });
   }
   function raiseBanner(id, type, message, actionLabel, actionFn, options) {
@@ -4460,12 +4468,20 @@ function init() {
   const area = document.getElementById('banner-area');
   if (!area) return;
   function sync() {
-    const h = area.offsetHeight;
+    const rect = area.getBoundingClientRect();
+    const h = Math.ceil(rect.height);
     document.documentElement.style.setProperty('--banner-h', h > 0 ? h + 'px' : '0px');
   }
-  const obs = new MutationObserver(sync);
-  obs.observe(area, { childList: true, subtree: true, attributes: true });
-  sync(); // initial state
+  const obs = new MutationObserver(() => {
+    // Multi-pass measurement to catch iOS text-reflow race.
+    sync();
+    setTimeout(sync, 50);
+    setTimeout(sync, 200);
+  });
+  obs.observe(area, { childList: true, subtree: true, attributes: true, characterData: true });
+  // Also resync on viewport resize (orientation changes, keyboard show/hide).
+  window.addEventListener('resize', sync);
+  sync();
 })();
 
 if (document.readyState === 'loading') {
