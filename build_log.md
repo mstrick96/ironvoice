@@ -32,7 +32,7 @@ Each step produces a testable artifact. Do not proceed to the next step until th
 |------|------|--------|
 | 1 | Skeleton + storage architecture | 🟢 Complete |
 | 2 | State machine + UI shell | 🟢 Complete |
-| 3 | Voice loop (Layer 1 wake word + basic commands) | 🟡 Code produced — awaiting device test |
+| 3 | Voice loop (Layer 1 wake word + basic commands) | 🟢 Complete |
 | 4 | Full command grammar (Layer 2) | ⚪ Not started |
 | 5 | Layer 3 intent matching | ⚪ Not started |
 | 6 | Wake Lock + wall-clock rest timer + lifecycle hardening | ⚪ Not started |
@@ -772,4 +772,28 @@ The user explicitly suggested an opaque approach in an earlier message and I def
 **Why this is final.** No layout reflow, no measurement timing, no flex-padding inheritance chain. Adding banners in Steps 4/6/7 won't introduce overlap regressions because the architecture is now: banners paint over everything, period.
 
 **Version tag:** `VERSION 2.0.1 · STEP 3 · patch 7`
+
+
+### 2026-04-29 — Step 3 complete
+
+All 18 exit criteria verified passing on device. Working as intended:
+
+- Voice loop with wake word "Coach"
+- Five Layer-1 commands: next, previous, repeat, help, pause
+- Quality-scored voice selection with persistent user choice via Voice Tester
+- Text normalization (`reps` → `repetitions`, `lbs` → `pounds`, `Iron` → `I-urn`, etc.)
+- Recognizer auto-restart with iOS-tuned 300ms delay and InvalidStateError retry
+- TTS warm-keep prevents iOS silence-after-idle
+- Tap-to-interrupt during speech
+- Lifecycle recovery: phone lock + unlock, app background + return, both auto-recover with audible "Listening." cue
+- Online/offline scope correction: TTS works offline, recognition suspended; auto-resumes on network return
+- Voice diagnostic overlay (toggleable, shows raw recognizer transcripts on screen for debugging)
+- Long-press voice badge for last-12-events history
+- Banner stacking with opaque-cover semantics — banners fully obscure content beneath rather than reflow it; safe and predictable
+
+The architecture is now solid for Step 4 to build on. Adding more banners, more commands, or more state-machine transitions doesn't risk regressing the foundation.
+
+**Step 3 status: 🟢 Complete.**
+
+Step 4 is cleared to begin.
 
