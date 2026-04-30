@@ -1,0 +1,40 @@
+name: Build index.html
+
+# Triggers when src/*.js, index.template.html, or build.sh is changed
+# on the main branch. Regenerates index.html and commits it back.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'index.template.html'
+      - 'build.sh'
+
+# Permissions for the workflow's auto-commit step.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Run build script
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Commit rebuilt index.html if changed
+        run: |
+          git config --local user.name  "github-actions[bot]"
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet index.html; then
+            git add index.html
+            git commit -m "Build: regenerate index.html"
+            git push
+          else
+            echo "index.html unchanged — nothing to commit."
+          fi
