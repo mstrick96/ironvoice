@@ -91,15 +91,18 @@ const CONFIG = {
       id: 'e11', type: 'strength', name: 'Hip Adduction',
       weight: 40, reps: 20, sets: 1, rest: 90,
       note: 'Slow squeeze inward. Brief hold. Controlled return. No bouncing.',
-      // DISTINCT from abduction: uses "add", "adductor", "inner thigh"
-      aliases: ['hip adduction', 'adduction', 'adductor', 'inner thigh', 'add machine']
+      // ACOUSTIC DISAMBIGUATION (Step 4): "hip in" leads — recognizers
+      // cannot reliably distinguish "adduction" / "abduction".
+      // Anatomical names retained as fallback. On-screen canonical
+      // name stays "Hip Adduction".
+      aliases: ['hip in', 'inner thigh', 'add machine', 'hip adduction', 'adduction', 'adductor']
     },
     {
       id: 'e12', type: 'strength', name: 'Hip Abduction',
       weight: 40, reps: 20, sets: 1, rest: 90,
       note: 'Slow push outward. Brief hold. Controlled return. No bouncing.',
-      // DISTINCT from adduction: uses "ab", "abductor", "outer thigh"
-      aliases: ['hip abduction', 'abduction', 'abductor', 'outer thigh', 'ab machine']
+      // ACOUSTIC DISAMBIGUATION (Step 4): "hip out" leads — see e11.
+      aliases: ['hip out', 'outer thigh', 'ab machine', 'hip abduction', 'abduction', 'abductor']
     }
   ]
 };

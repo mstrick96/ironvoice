@@ -1337,7 +1337,7 @@ body {
 <div class="screen screen-center" id="screen-welcome">
   <div class="logo">IRON<br>VOICE</div>
   <div class="logo-sub">Workout Assistant</div>
-  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 3 · patch 7</div>
+  <div class="version-tag" id="version-tag">VERSION 2.0.1 · STEP 4 · patch 0</div>
   <div class="welcome-plan-info" id="welcome-plan-info">Loading plan…</div>
   <button class="btn-primary" onclick="Session.start()">BEGIN WORKOUT</button>
   <div class="btn-row">
@@ -1781,15 +1781,18 @@ const CONFIG = {
       id: 'e11', type: 'strength', name: 'Hip Adduction',
       weight: 40, reps: 20, sets: 1, rest: 90,
       note: 'Slow squeeze inward. Brief hold. Controlled return. No bouncing.',
-      // DISTINCT from abduction: uses "add", "adductor", "inner thigh"
-      aliases: ['hip adduction', 'adduction', 'adductor', 'inner thigh', 'add machine']
+      // ACOUSTIC DISAMBIGUATION (Step 4): "hip in" leads — recognizers
+      // cannot reliably distinguish "adduction" / "abduction".
+      // Anatomical names retained as fallback. On-screen canonical
+      // name stays "Hip Adduction".
+      aliases: ['hip in', 'inner thigh', 'add machine', 'hip adduction', 'adduction', 'adductor']
     },
     {
       id: 'e12', type: 'strength', name: 'Hip Abduction',
       weight: 40, reps: 20, sets: 1, rest: 90,
       note: 'Slow push outward. Brief hold. Controlled return. No bouncing.',
-      // DISTINCT from adduction: uses "ab", "abductor", "outer thigh"
-      aliases: ['hip abduction', 'abduction', 'abductor', 'outer thigh', 'ab machine']
+      // ACOUSTIC DISAMBIGUATION (Step 4): "hip out" leads — see e11.
+      aliases: ['hip out', 'outer thigh', 'ab machine', 'hip abduction', 'abduction', 'abductor']
     }
   ]
 };
@@ -2305,7 +2308,7 @@ const Session = (() => {
     start();
   }
 
-  function navigate(delta) {
+  function navigate(delta, silent) {
     if (!_data || !_plan) return;
     const newIdx = _data.currentIndex + delta;
     if (newIdx < 0 || newIdx >= _plan.exercises.length) return;
@@ -2315,6 +2318,9 @@ const Session = (() => {
     Diag.add('session', `Navigate to index ${newIdx}`);
     // Spec §6.2: announce each exercise on arrival. Applies whether
     // navigation came from voice ("Coach next") or tap (PREV/NEXT).
+    // Step 4: voice executor passes silent=true when the chain step
+    // itself produces the announcement (avoids double-speaking).
+    if (silent) return;
     const ex = getCurrentExercise();
     if (ex) {
       const intro = delta > 0 ? 'Moving to ' : 'Going back to ';
@@ -2322,7 +2328,7 @@ const Session = (() => {
     }
   }
 
-  function goTo(index) {
+  function goTo(index, silent) {
     if (!_data || !_plan) return;
     if (index < 0 || index >= _plan.exercises.length) return;
     const sameIndex = _data.currentIndex === index;
@@ -2330,6 +2336,7 @@ const Session = (() => {
     heartbeat();
     WorkoutUI.render();
     Diag.add('session', `Jump to index ${index}`);
+    if (silent) return;
     // Announce the destination — same behavior as navigate() per
     // spec §6.2. Skip if user tapped the exercise they were already on.
     if (!sameIndex) {
@@ -2489,8 +2496,20 @@ const Session = (() => {
     }
   }
 
-  function end() {
-    if (!_data || !_plan) return;
+  function setSessionNote(text) {
+    if (!_data) return;
+    _data.sessionNote = String(text || '');
+    heartbeat();
+    Diag.add('session', 'Session note set', { len: _data.sessionNote.length });
+  }
+
+  // Internal: commits the current session to history, applies pending
+  // plan changes to the saved plan, clears the live session key, and
+  // returns a snapshot. Does NOT shut down voice or show Summary —
+  // those are caller responsibilities so the spoken-summary path can
+  // run TTS first. Returns null if no session is active.
+  function _commitSession() {
+    if (!_data || !_plan) return null;
     const history = Storage.loadKey('history');
 
     // Apply pending plan changes to the saved plan
@@ -2524,7 +2543,7 @@ const Session = (() => {
     history.sessions.push(record);
     Storage.saveKey('history', history);
     Storage.saveKey('session', null);
-    Diag.add('session', 'Session ended explicitly', { duration: durationMin });
+    Diag.add('session', 'Session committed', { duration: durationMin });
 
     const snapshot = {
       logEntries: _data.logEntries.slice(),
@@ -2534,12 +2553,38 @@ const Session = (() => {
     };
     _data = null;
     _plan = null;
+    return snapshot;
+  }
+
+  // Tap-driven end (END button → confirmation overlay → "Yes, end").
+  // Silent: voice not used here. The existing UI path.
+  function end() {
+    const snapshot = _commitSession();
+    if (!snapshot) return;
     // Shut down voice cleanly — stops recognizer, cancels any active
     // TTS, clears warm-keep timer, transitions state to IDLE if not
     // already there.
     Voice.shutdown();
     State.transition(STATES.IDLE, 'session ended');
     Summary.show(snapshot);
+  }
+
+  // Voice-driven end ("coach end workout"). Commits session, builds
+  // the spoken summary text, and returns { summaryText, snapshot }
+  // for the Voice module to speak before tearing down. Voice is left
+  // running so the summary speech can play; the caller invokes
+  // Voice.shutdown + Summary.show on the TTS onend.
+  function endWithSpokenSummary() {
+    const snapshot = _commitSession();
+    if (!snapshot) return null;
+    const uniqueExercises = new Set(snapshot.logEntries.map(e => e.exId)).size;
+    const setsCount = snapshot.logEntries.length;
+    const planUpdates = snapshot.pendingPlanChanges.length;
+    let txt = `Workout complete. ${uniqueExercises} exercise${uniqueExercises === 1 ? '' : 's'} logged, ${setsCount} set${setsCount === 1 ? '' : 's'} total, in ${snapshot.duration} minute${snapshot.duration === 1 ? '' : 's'}.`;
+    if (planUpdates > 0) {
+      txt += ` ${planUpdates} plan update${planUpdates === 1 ? '' : 's'} saved for next session.`;
+    }
+    return { summaryText: txt, snapshot };
   }
 
   function getData() { return _data; }
@@ -2549,6 +2594,7 @@ const Session = (() => {
     start, resume, startFresh, navigate, goTo,
     logSet, undoLastSet, applyTodayOverride, queuePlanChange, markNoteSeen, end,
     addSetDotOnly, saveSetCountForNextTime,
+    setSessionNote, endWithSpokenSummary,
     getEffectivePlannedSets, isSetCountSavedForNextTime,
     getCurrentExercise, getEffectiveValue, getSetCount, isExerciseDone,
     heartbeat, getData, getPlan
@@ -2717,82 +2763,765 @@ const Voice = (() => {
     if (_diagOverlayTimer) { clearTimeout(_diagOverlayTimer); _diagOverlayTimer = null; }
   }
 
-  // ───── Command parser (Layer 1 subset) ─────────────────────────
+  // ───── Command parser (Layer 2 keyword grammar) ────────────────
+  //
+  // Step 4 architecture: _parseCommand returns one of:
+  //   { cmd: 'bare' }                  bare wake word, no command
+  //   { cmd: 'unknown', text: '...' }  no Layer 2 match
+  //   { cmd: '<name>', ... }           single command with args
+  //   { cmd: 'compound', parts: [...]} two commands joined by and/then/comma
+  //
+  // _executeCommand dispatches by cmd. Compound commands run via
+  // _speakChain so each side effect fires on the prior utterance's
+  // speech-end callback (spec §2.4 — never setTimeout).
+  //
+  // Parser is pure: zero side effects, zero state mutation. All side
+  // effects live in the executor. Parser is exported as __parseCommand
+  // for offline node testing.
 
-  function _parseCommand(tail) {
-    const t = (tail || '').trim().toLowerCase().replace(/[.,!?;]+$/g, '');
-    if (!t) return { cmd: 'bare' };  // bare wake word with nothing after
-    // NEXT
-    if (/^(next( exercise)?|move on|keep going)$/.test(t)) return { cmd: 'next' };
-    // PREVIOUS
-    if (/^(previous( exercise)?|back|go back|last one)$/.test(t)) return { cmd: 'previous' };
-    // REPEAT
-    if (/^(repeat|say that again|what was that|come again)$/.test(t)) return { cmd: 'repeat' };
-    // HELP
-    if (/^help$/.test(t)) return { cmd: 'help' };
-    // PAUSE
-    // PAUSE — iOS frequently mis-hears "pause" as "paul" or "paul's"
-    // (the soft "z" sounds like a possessive 's, the "aw" vowel matches
-    // the name). "paws" is another common mis-hearing. Extend tolerantly.
-    if (/^(pause|pause's|paus|paul|paul's|pauls|paws|paw's|stop listening|mute)$/.test(t)) {
-      return { cmd: 'pause' };
+  // Spelled-number table for "I did twenty reps at forty pounds" etc.
+  // 0–99 plus "hundred". Compound forms ("twenty-five", "forty five")
+  // handled by tokenizing and re-pairing in _parseNumber.
+  const _NUM_WORDS = {
+    'zero': 0, 'oh': 0,
+    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+    'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+    'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14,
+    'fifteen': 15, 'sixteen': 16, 'seventeen': 17, 'eighteen': 18,
+    'nineteen': 19,
+    'twenty': 20, 'thirty': 30, 'forty': 40, 'fifty': 50,
+    'sixty': 60, 'seventy': 70, 'eighty': 80, 'ninety': 90,
+    'hundred': 100
+  };
+
+  // Parse a number from a string fragment. Accepts:
+  //   "20", "45"              digits, 0–999
+  //   "twenty", "forty-five"  spelled, 0–99
+  //   "forty five"            spelled with space
+  // Rejects decimals, negatives, and >999. Returns null on failure.
+  function _parseNumber(s) {
+    if (s === null || s === undefined) return null;
+    const t = String(s).trim().toLowerCase().replace(/[-]/g, ' ');
+    if (!t) return null;
+    if (/^\d+$/.test(t)) {
+      const n = parseInt(t, 10);
+      if (n >= 0 && n <= 999) return n;
+      return null;
     }
+    const tokens = t.split(/\s+/);
+    if (tokens.length === 1) {
+      const n = _NUM_WORDS[tokens[0]];
+      return (typeof n === 'number') ? n : null;
+    }
+    if (tokens.length === 2) {
+      const a = _NUM_WORDS[tokens[0]];
+      const b = _NUM_WORDS[tokens[1]];
+      if (typeof a === 'number' && typeof b === 'number') {
+        if (a >= 20 && a <= 90 && a % 10 === 0 && b >= 1 && b <= 9) return a + b;
+        if (a >= 1 && a <= 9 && b === 100) return a * 100;
+      }
+    }
+    return null;
+  }
+
+  // Bounded Levenshtein up to maxDist. Returns the actual distance
+  // (or maxDist+1 if exceeded). Used for fuzzy exercise-name lookup —
+  // not the wake-word matcher (which has its own ≤1 helper above).
+  function _levDist(a, b, maxDist) {
+    if (a === b) return 0;
+    const la = a.length, lb = b.length;
+    if (Math.abs(la - lb) > maxDist) return maxDist + 1;
+    let prev = new Array(lb + 1);
+    let curr = new Array(lb + 1);
+    for (let j = 0; j <= lb; j++) prev[j] = j;
+    for (let i = 1; i <= la; i++) {
+      curr[0] = i;
+      let rowMin = i;
+      for (let j = 1; j <= lb; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+        if (curr[j] < rowMin) rowMin = curr[j];
+      }
+      if (rowMin > maxDist) return maxDist + 1;
+      const tmp = prev; prev = curr; curr = tmp;
+    }
+    return prev[lb];
+  }
+
+  // Resolve an exercise-name fragment to a single exercise from the
+  // current plan. Lookup order (per build log):
+  //   1. Exact alias match across all exercises
+  //   2. Substring match (alias contains fragment OR fragment contains alias)
+  //   3. Levenshtein ≤ 2 against canonical name (lowercased)
+  // If multiple exercises tie at any level, returns { tie: true } —
+  // caller rejects and asks the user to retry. No guessing across ties.
+  // Returns { ex } on success, { tie: true } on ambiguity, or null on no match.
+  function _resolveExerciseName(fragment) {
+    const plan = Session.getPlan();
+    if (!plan || !plan.exercises) return null;
+    const t = String(fragment || '').trim().toLowerCase()
+      .replace(/^the\s+/, '')
+      .replace(/[.,!?;]+$/, '');
+    if (!t) return null;
+
+    // Pass 1: exact alias match
+    const exactMatches = [];
+    for (const ex of plan.exercises) {
+      const aliases = ex.aliases || [];
+      if (aliases.some(a => a.toLowerCase() === t)) exactMatches.push(ex);
+    }
+    if (exactMatches.length === 1) return { ex: exactMatches[0] };
+    if (exactMatches.length > 1) return { tie: true };
+
+    // Pass 2: substring match
+    const subMatches = new Set();
+    for (const ex of plan.exercises) {
+      const aliases = ex.aliases || [];
+      for (const a of aliases) {
+        const al = a.toLowerCase();
+        if (al && (al.includes(t) || t.includes(al))) {
+          subMatches.add(ex);
+          break;
+        }
+      }
+    }
+    if (subMatches.size === 1) return { ex: Array.from(subMatches)[0] };
+    if (subMatches.size > 1) return { tie: true };
+
+    // Pass 3: Levenshtein ≤ 2 against canonical name
+    let best = null, bestDist = 3, tied = false;
+    for (const ex of plan.exercises) {
+      const d = _levDist(t, ex.name.toLowerCase(), 2);
+      if (d < bestDist) { best = ex; bestDist = d; tied = false; }
+      else if (d === bestDist) { tied = true; }
+    }
+    if (best && !tied) return { ex: best };
+    if (best && tied) return { tie: true };
+    return null;
+  }
+
+  // ───── Compound splitter ───────────────────────────────────────
+  // Compound rule: split on " and " / " then " / "," ONCE if both
+  // halves parse as known commands. Note-text commands are
+  // non-splittable (note text extends to end-of-utterance).
+
+  function _isNotePrefix(s) {
+    return /^(add note\b|workout note\b|next time add note\b)/.test(s);
+  }
+
+  function _trySplitCompound(tail) {
+    if (_isNotePrefix(tail)) return null;
+    const sepRe = /(\s+and\s+|\s+then\s+|\s*,\s*)/;
+    const m = tail.match(sepRe);
+    if (!m) return null;
+    const left  = tail.slice(0, m.index).trim();
+    const right = tail.slice(m.index + m[0].length).trim();
+    if (!left || !right) return null;
+    return { left, right };
+  }
+
+  // ───── Layer 2 parser ──────────────────────────────────────────
+
+  function _parseSingle(tail) {
+    const t = String(tail || '').trim().toLowerCase().replace(/[.,!?;]+$/g, '');
+    if (!t) return { cmd: 'bare' };
+
+    // ── Navigation ────────────────────────────────────────────────
+    if (/^(next( exercise)?|move on|keep going|okay next|ok next)$/.test(t))
+      return { cmd: 'next' };
+    if (/^(previous( exercise)?|back|go back|back up|last one)$/.test(t))
+      return { cmd: 'previous' };
+    if (/^(repeat|say that again|what was that|come again|i missed that)$/.test(t))
+      return { cmd: 'repeat' };
+    if (/^(skip( this)?( one)?|skip it|pass|come back later|machines taken|machine is taken)$/.test(t))
+      return { cmd: 'skip' };
+    if (/^(whats next|what is next|what comes next|whats after this|coming up)$/.test(t))
+      return { cmd: 'whatsNext' };
+    if (/^(whats left|what is left|whats remaining|what is remaining|how much is left|what do i still have)$/.test(t))
+      return { cmd: 'whatsLeft' };
+    if (/^(list exercises|read me the list|todays workout|what am i doing today|read the list)$/.test(t))
+      return { cmd: 'listExercises' };
+    let mNav;
+    if ((mNav = t.match(/^(?:go to|switch to|jump to|do)\s+(.+?)(?:\s+next)?$/))) {
+      return { cmd: 'goTo', nameFragment: mNav[1].trim() };
+    }
+
+    // ── Session control ───────────────────────────────────────────
+    if (/^help$/.test(t)) return { cmd: 'help' };
+    if (/^(pause|pause's|paus|paul|paul's|pauls|paws|paw's|stop listening|mute)$/.test(t))
+      return { cmd: 'pause' };
+    if (/^(end workout|finish workout|were done|we are done|end session|finish up|that is it for today|thats it for today)$/.test(t))
+      return { cmd: 'endWorkout' };
+
+    // ── Notes (non-splittable; must be checked early) ─────────────
+    let mNote;
+    if ((mNote = t.match(/^add note\s+(.+)$/)))
+      return { cmd: 'addNote', text: mNote[1].trim() };
+    if ((mNote = t.match(/^workout note\s+(.+)$/)))
+      return { cmd: 'workoutNote', text: mNote[1].trim() };
+    if (/^read (my )?notes?$/.test(t) || /^read the notes?$/.test(t))
+      return { cmd: 'readNotes' };
+
+    // ── History ───────────────────────────────────────────────────
+    if (/^(last time|previous session|last session|how did i do last time)$/.test(t))
+      return { cmd: 'lastTime' };
+
+    // ── Logging ───────────────────────────────────────────────────
+    let mLog;
+    if ((mLog = t.match(/^(?:i did|did|got|finished)\s+(.+?)\s+(?:reps?\s+)?(?:at|with)\s+(.+?)(?:\s+(?:pounds?|lbs?|lb))?$/))) {
+      const nReps = _parseNumber(mLog[1].replace(/\s*reps?\s*$/, '').trim());
+      const nWt   = _parseNumber(mLog[2].replace(/\s*(pounds?|lbs?|lb)\s*$/, '').trim());
+      if (nReps !== null && nWt !== null) {
+        return { cmd: 'logSetWithValues', reps: nReps, weight: nWt };
+      }
+    }
+    if ((mLog = t.match(/^(.+?)\s+reps?\s+(?:at|with)\s+(.+?)(?:\s+(?:pounds?|lbs?|lb))?$/))) {
+      const nReps = _parseNumber(mLog[1].trim());
+      const nWt   = _parseNumber(mLog[2].replace(/\s*(pounds?|lbs?|lb)\s*$/, '').trim());
+      if (nReps !== null && nWt !== null) {
+        return { cmd: 'logSetWithValues', reps: nReps, weight: nWt };
+      }
+    }
+    if (/^(set done|thats a set|that is a set|one set down|finished a set|set complete|set is done|set finished)$/.test(t))
+      return { cmd: 'logSet' };
+    if (/^(exercise done|done with this|thats it|that is it|all done here|finished this one|mark it off|mark it done)$/.test(t))
+      return { cmd: 'logSet' };
+    if (/^(log it|log this( exercise)?|mark it logged|save this one|log this set)$/.test(t))
+      return { cmd: 'logSet' };
+    if (/^(undo( last set)?|take back the last set|remove that log|undo that)$/.test(t))
+      return { cmd: 'undoSet' };
+    if (/^(add a set|add set|one more set|add another set|give me another set)$/.test(t))
+      return { cmd: 'addSet' };
+
+    let mBike;
+    if ((mBike = t.match(/^(?:bike done|warmup done|warm up done|finished the bike|bike complete|warmup complete)(?:\s+(.+))?$/))) {
+      const rest = (mBike[1] || '').trim();
+      if (!rest) return { cmd: 'bikeDone' };
+      const minMatch = rest.match(/(.+?)\s*(?:minutes?|mins?|min)\s+(?:at\s+)?level\s+(.+)$/);
+      if (minMatch) {
+        const minutes = _parseNumber(minMatch[1].trim());
+        const level   = _parseNumber(minMatch[2].trim());
+        if (minutes !== null && level !== null) {
+          return { cmd: 'bikeDone', minutes, level };
+        }
+      }
+      const lvlMatch = rest.match(/level\s+(.+?)\s*,?\s+(.+?)\s*(?:minutes?|mins?|min)$/);
+      if (lvlMatch) {
+        const level   = _parseNumber(lvlMatch[1].trim());
+        const minutes = _parseNumber(lvlMatch[2].trim());
+        if (minutes !== null && level !== null) {
+          return { cmd: 'bikeDone', minutes, level };
+        }
+      }
+      return { cmd: 'bikeDone' };
+    }
+
+    // ── Today-only value changes ──────────────────────────────────
+    let mChg;
+    if ((mChg = t.match(/^(?:change|set|use)\s+(weight|reps?|sets?|level|time|duration|minutes?)\s+(?:to\s+)?(.+?)(?:\s+(?:pounds?|lbs?|lb|minutes?|mins?|min))?(?:\s+today)?$/))) {
+      const field = _normalizeField(mChg[1]);
+      const value = _parseNumber(mChg[2].replace(/\s*(pounds?|lbs?|lb|minutes?|mins?|min)\s*$/, '').trim());
+      if (field && value !== null) return { cmd: 'changeToday', field, value };
+    }
+    if ((mChg = t.match(/^use\s+(.+?)\s+today$/))) {
+      const value = _parseNumber(mChg[1].replace(/\s*(pounds?|lbs?|lb)\s*$/, '').trim());
+      if (value !== null) return { cmd: 'changeToday', field: 'weight', value, implicitField: true };
+    }
+
+    // ── Permanent plan changes (next-time) ────────────────────────
+    let mNxt;
+    if ((mNxt = t.match(/^next time add note\s+(.+)$/)))
+      return { cmd: 'nextTimeNote', text: mNxt[1].trim() };
+    if ((mNxt = t.match(/^next time\s+(.+)$/))) {
+      const parsed = _parseNextTimeRest(mNxt[1].trim());
+      if (parsed) return { cmd: 'nextTime', field: parsed.field, value: parsed.value };
+    }
+    if ((mNxt = t.match(/^save\s+(.+?)\s+(?:pounds?|lbs?)\s+as my new plan$/))) {
+      const value = _parseNumber(mNxt[1].trim());
+      if (value !== null) return { cmd: 'nextTime', field: 'weight', value, implicitField: true };
+    }
+    if (/^save (this|set count)( as my new plan)?$/.test(t))
+      return { cmd: 'saveSetCountForNextTime' };
+
     return { cmd: 'unknown', text: t };
   }
 
+  function _normalizeField(raw) {
+    const f = String(raw || '').toLowerCase();
+    if (f === 'weight') return 'weight';
+    if (f === 'rep' || f === 'reps') return 'reps';
+    if (f === 'set' || f === 'sets') return 'sets';
+    if (f === 'level') return 'level';
+    if (f === 'time' || f === 'duration' || f === 'minute' || f === 'minutes') return 'duration';
+    return null;
+  }
+
+  // Parse the part after "next time" — flexible word order. Returns
+  // { field, value } or null.
+  function _parseNextTimeRest(s) {
+    const t = String(s || '').trim().toLowerCase()
+      .replace(/\s*(pounds?|lbs?|lb)\s*$/, '')
+      .replace(/\s*(minutes?|mins?|min)\s*$/, '');
+    const noBike = t.replace(/^bike\s+/, '');
+    const noTo = noBike.replace(/\s+to\s+/, ' ').replace(/^to\s+/, '');
+    const fieldFirst = noTo.match(/^(weight|reps?|sets?|level|time|duration|minutes?)\s+(.+)$/);
+    if (fieldFirst) {
+      const field = _normalizeField(fieldFirst[1]);
+      const value = _parseNumber(fieldFirst[2].trim());
+      if (field && value !== null) return { field, value };
+    }
+    const valFirst = noTo.match(/^(.+?)\s+(weight|reps?|sets?|level|time|duration|minutes?)$/);
+    if (valFirst) {
+      const value = _parseNumber(valFirst[1].trim());
+      const field = _normalizeField(valFirst[2]);
+      if (field && value !== null) return { field, value };
+    }
+    return null;
+  }
+
+  // Top-level parser: handles compound detection, then delegates.
+  function _parseCommand(tail) {
+    const t = String(tail || '').trim().toLowerCase().replace(/[.,!?;]+$/g, '');
+    if (!t) return { cmd: 'bare' };
+
+    const split = _trySplitCompound(t);
+    if (split) {
+      const left  = _parseSingle(split.left);
+      const right = _parseSingle(split.right);
+      if (left.cmd !== 'unknown' && left.cmd !== 'bare' &&
+          right.cmd !== 'unknown' && right.cmd !== 'bare') {
+        return { cmd: 'compound', parts: [left, right] };
+      }
+      // Fall through to single-parse on the whole utterance.
+    }
+    return _parseSingle(t);
+  }
+
+  // ───── Compound execution chain ────────────────────────────────
+  // _speakChain([{ effect, text }, ...]) runs each step in order:
+  //   1. Calls effect() (sync side effect)
+  //   2. Speaks text
+  //   3. On TTS onend, advances to next step (NOT setTimeout)
+  //
+  // While in a non-final chain step, _speak.onend skips its normal
+  // LISTENING-restart path; the chain itself drives the next step.
+  // The final step uses normal onend behavior. _chainCancelled is
+  // set by interruptSpeech() and aborts the chain — second side
+  // effect does not fire.
+
+  let _chainQueue = null;
+  let _chainCancelled = false;
+  let _inChainStep = false;  // true while a non-final chain step is speaking
+
+  function _speakChain(steps) {
+    if (!steps || steps.length === 0) return;
+    _chainQueue = steps.slice();
+    _chainCancelled = false;
+    _runNextChainStep();
+  }
+
+  function _runNextChainStep() {
+    if (_chainCancelled || !_chainQueue || _chainQueue.length === 0) {
+      _chainQueue = null;
+      _chainCancelled = false;
+      _inChainStep = false;
+      return;
+    }
+    const step = _chainQueue.shift();
+    const isLast = _chainQueue.length === 0;
+    if (step.effect) {
+      try { step.effect(); }
+      catch (e) { Diag.add('voice', 'chain effect error', String(e)); }
+    }
+    if (_chainCancelled) {
+      _chainQueue = null;
+      _chainCancelled = false;
+      _inChainStep = false;
+      return;
+    }
+    if (isLast) {
+      _inChainStep = false;
+      _speak(step.text || '');
+    } else {
+      _inChainStep = true;
+      _speak(step.text || '', () => {
+        _inChainStep = false;
+        _runNextChainStep();
+      });
+    }
+  }
+
+  function _cancelChain() {
+    if (_chainQueue || _inChainStep) {
+      _chainCancelled = true;
+      _chainQueue = null;
+      _inChainStep = false;
+      Diag.add('voice', 'Chain cancelled');
+    }
+  }
+
+  // ───── Command executor ────────────────────────────────────────
+
   function _executeCommand(parsed) {
     State.transition(STATES.PROCESSING, `parse: ${parsed.cmd}`);
-    switch (parsed.cmd) {
-      case 'bare':
-        _speak('Yes? What would you like to do?');
-        return;
-      case 'next': {
-        const plan = Session.getPlan();
-        const data = Session.getData();
-        if (!plan || !data) { _speak('No session active.'); return; }
-        if (data.currentIndex >= plan.exercises.length - 1) {
-          _speak('That was the last exercise.');
-          return;
-        }
-        // Session.navigate announces the destination itself (spec §6.2).
-        // The parser's job here is just to move. We still need to
-        // return to LISTENING after — navigate() calls Voice.say()
-        // which handles that via onend.
-        Session.navigate(1);
-        return;
-      }
-      case 'previous': {
-        const data = Session.getData();
-        if (!data) { _speak('No session active.'); return; }
-        if (data.currentIndex === 0) {
-          _speak('Already at the first exercise.');
-          return;
-        }
-        Session.navigate(-1);
-        return;
-      }
-      case 'repeat': {
-        const ex = Session.getCurrentExercise();
-        if (!ex) { _speak('No exercise loaded.'); return; }
-        _speak(_describeExercise(ex));
-        return;
-      }
-      case 'help':
-        _speak('Say next, previous, or repeat. More commands coming soon.');
-        return;
-      case 'pause':
-        _stopRecognizer();
-        _wantListening = false;
-        _speak('Paused. Tap the badge to resume.');
-        // After speech ends, state goes to LISTENING by default via onend.
-        // We want IDLE instead, so flag it:
-        _pauseAfterSpeak = true;
-        return;
-      case 'unknown':
-      default:
+
+    if (parsed.cmd === 'compound') {
+      const stepA = _buildChainStep(parsed.parts[0]);
+      const stepB = _buildChainStep(parsed.parts[1]);
+      if (!stepA || !stepB) {
         _speak("I didn't catch that. Say Coach help for commands.");
         return;
+      }
+      // directHandler doesn't fit the simple chain pattern. Common
+      // realistic case is "log it and end workout" — handle by running
+      // stepA then invoking stepB's directHandler from stepA's onend.
+      if (stepB.directHandler) {
+        _executeChainWithDirectTail(stepA, stepB);
+        return;
+      }
+      if (stepA.directHandler) {
+        // pause/end as the FIRST half — unusual but run it.
+        stepA.directHandler();
+        return;
+      }
+      _speakChain([stepA, stepB]);
+      return;
     }
+
+    const step = _buildChainStep(parsed);
+    if (!step) {
+      _speak("I didn't catch that. Say Coach help for commands.");
+      return;
+    }
+    if (step.directHandler) {
+      step.directHandler();
+      return;
+    }
+    if (step.effect) {
+      try { step.effect(); }
+      catch (e) { Diag.add('voice', 'effect error', String(e)); }
+    }
+    _speak(step.text || '');
+  }
+
+  // Execute "<normal step> and <directHandler step>" — e.g.
+  // "log it and end workout". Runs stepA's effect, speaks stepA's
+  // text, then on TTS onend invokes stepB's directHandler.
+  function _executeChainWithDirectTail(stepA, stepB) {
+    if (stepA.effect) {
+      try { stepA.effect(); }
+      catch (e) { Diag.add('voice', 'effect error', String(e)); }
+    }
+    _speak(stepA.text || '', () => stepB.directHandler());
+  }
+
+  // Build a chain step ({ effect, text } or { directHandler }) for
+  // a parsed single command. Returns null if unknown.
+  function _buildChainStep(parsed) {
+    const data = Session.getData();
+    const plan = Session.getPlan();
+    const ex   = Session.getCurrentExercise();
+
+    switch (parsed.cmd) {
+      case 'bare':
+        return { text: 'Yes? What would you like to do?' };
+
+      case 'next': {
+        if (!plan || !data) return { text: 'No session active.' };
+        if (data.currentIndex >= plan.exercises.length - 1)
+          return { text: 'That was the last exercise.' };
+        return {
+          effect: () => Session.navigate(1, true),
+          text:   _navIntroText(1)
+        };
+      }
+      case 'previous': {
+        if (!data) return { text: 'No session active.' };
+        if (data.currentIndex === 0)
+          return { text: 'Already at the first exercise.' };
+        return {
+          effect: () => Session.navigate(-1, true),
+          text:   _navIntroText(-1)
+        };
+      }
+      case 'repeat': {
+        if (!ex) return { text: 'No exercise loaded.' };
+        return { text: _describeExercise(ex) };
+      }
+      case 'skip': {
+        if (!plan || !data || !ex) return { text: 'No session active.' };
+        if (data.currentIndex >= plan.exercises.length - 1)
+          return { text: `${ex.name} is the last exercise. Nothing to skip to.` };
+        const nextEx = plan.exercises[data.currentIndex + 1];
+        const skippedName = ex.name;
+        return {
+          effect: () => Session.navigate(1, true),
+          text:   `Skipping ${skippedName}. ${_describeExercise(nextEx)}`
+        };
+      }
+      case 'whatsNext': {
+        if (!plan || !data) return { text: 'No session active.' };
+        if (data.currentIndex >= plan.exercises.length - 1)
+          return { text: 'This is the last exercise.' };
+        const nextEx = plan.exercises[data.currentIndex + 1];
+        return { text: `Next: ${_describeExercise(nextEx)}` };
+      }
+      case 'whatsLeft': {
+        if (!plan || !data) return { text: 'No session active.' };
+        const remaining = plan.exercises.slice(data.currentIndex + 1);
+        if (remaining.length === 0) return { text: 'Nothing remaining. This is the last exercise.' };
+        const names = remaining.map(e => e.name).join(', ');
+        return { text: `Remaining: ${names}.` };
+      }
+      case 'listExercises': {
+        if (!plan) return { text: 'No plan loaded.' };
+        const names = plan.exercises.map(e => e.name).join(', ');
+        return { text: `Today has ${plan.exercises.length} items. ${names}.` };
+      }
+      case 'goTo': {
+        if (!plan || !data) return { text: 'No session active.' };
+        const res = _resolveExerciseName(parsed.nameFragment);
+        if (!res) return { text: `I don't know an exercise called ${parsed.nameFragment}.` };
+        if (res.tie) return { text: "I didn't catch the name — try again with a more specific term." };
+        const idx = plan.exercises.findIndex(e => e.id === res.ex.id);
+        if (idx === -1) return { text: `${res.ex.name} not in plan.` };
+        if (idx === data.currentIndex) return { text: `Already on ${res.ex.name}.` };
+        return {
+          effect: () => Session.goTo(idx, true),
+          text:   _describeExercise(res.ex)
+        };
+      }
+
+      case 'help':
+        return { text: 'Say next, previous, repeat, log it, add a set, change weight, next time weight, last time, end workout, or pause.' };
+
+      case 'pause':
+        return {
+          directHandler: () => {
+            _stopRecognizer();
+            _wantListening = false;
+            _speak('Paused. Tap the badge to resume.');
+            _pauseAfterSpeak = true;
+          }
+        };
+
+      case 'endWorkout':
+        return { directHandler: () => _endWorkoutSpoken() };
+
+      case 'logSet': {
+        if (!ex) return { text: 'No exercise loaded.' };
+        if (ex.type === 'timed') return _buildBikeDone({});
+        const setNumAfter = Session.getSetCount(ex.id) + 1;
+        const reps   = Session.getEffectiveValue(ex.id, 'reps');
+        const weight = Session.getEffectiveValue(ex.id, 'weight');
+        return {
+          effect: () => Session.logSet(),
+          text:   `Set ${setNumAfter} done. ${reps} reps at ${weight} pounds.`
+        };
+      }
+      case 'logSetWithValues': {
+        if (!ex) return { text: 'No exercise loaded.' };
+        if (ex.type === 'timed')
+          return { text: 'Bike uses level and time, not reps and weight.' };
+        const r = parsed.reps, w = parsed.weight;
+        return {
+          effect: () => {
+            Session.applyTodayOverride('reps', r);
+            Session.applyTodayOverride('weight', w);
+            Session.logSet();
+          },
+          text: `Logged. ${r} reps at ${w} pounds.`
+        };
+      }
+      case 'undoSet': {
+        if (!ex) return { text: 'No exercise loaded.' };
+        const cnt = Session.getSetCount(ex.id);
+        if (cnt === 0) return { text: 'Nothing to undo.' };
+        return {
+          effect: () => Session.undoLastSet(),
+          text:   'Last set removed.'
+        };
+      }
+      case 'addSet': {
+        if (!ex) return { text: 'No exercise loaded.' };
+        if (ex.type === 'timed')
+          return { text: 'Add-set applies to strength exercises, not the bike.' };
+        const newCount = Session.getEffectivePlannedSets(ex.id) + 1;
+        return {
+          effect: () => Session.addSetDotOnly(),
+          text:   `Set added. ${ex.name} now has ${newCount} sets.`
+        };
+      }
+      case 'bikeDone':
+        return _buildBikeDone(parsed);
+
+      case 'changeToday': {
+        if (!ex) return { text: 'No exercise loaded.' };
+        const wrong = _wrongFieldForType(ex, parsed.field);
+        if (wrong) return { text: wrong };
+        const fieldName = _spokenFieldName(parsed.field);
+        return {
+          effect: () => Session.applyTodayOverride(parsed.field, parsed.value),
+          text:   `${_capitalize(fieldName)} updated to ${parsed.value}${_unitFor(parsed.field)} for today.`
+        };
+      }
+
+      case 'nextTime': {
+        if (!ex) return { text: 'No exercise loaded.' };
+        const wrong = _wrongFieldForType(ex, parsed.field);
+        if (wrong) return { text: wrong };
+        const fieldName = _spokenFieldName(parsed.field);
+        return {
+          effect: () => Session.queuePlanChange(parsed.field, parsed.value),
+          text:   `Got it. ${_capitalize(fieldName)} ${parsed.value}${_unitFor(parsed.field)} saved for next session.`
+        };
+      }
+      case 'nextTimeNote': {
+        if (!ex) return { text: 'No exercise loaded.' };
+        return {
+          effect: () => Session.queuePlanChange('note', parsed.text),
+          text:   'Got it. Note saved for next session.'
+        };
+      }
+      case 'saveSetCountForNextTime': {
+        if (!ex) return { text: 'No exercise loaded.' };
+        if (ex.type === 'timed') return { text: 'That command applies to strength exercises.' };
+        const cnt = Session.getEffectivePlannedSets(ex.id);
+        return {
+          effect: () => Session.saveSetCountForNextTime(),
+          text:   `Plan updated. ${ex.name} is now ${cnt} ${cnt === 1 ? 'set' : 'sets'} for next session.`
+        };
+      }
+
+      case 'addNote': {
+        if (!ex) return { text: 'No exercise loaded.' };
+        return {
+          effect: () => Session.queuePlanChange('note', parsed.text),
+          text:   'Note saved.'
+        };
+      }
+      case 'workoutNote': {
+        return {
+          effect: () => Session.setSessionNote(parsed.text),
+          text:   'Workout note saved.'
+        };
+      }
+      case 'readNotes': {
+        if (!ex) return { text: 'No exercise loaded.' };
+        const note = Session.getEffectiveValue(ex.id, 'note');
+        return { text: note ? note : `No note for ${ex.name}.` };
+      }
+
+      case 'lastTime': {
+        if (!ex) return { text: 'No exercise loaded.' };
+        return { text: _lastTimeFor(ex.id) };
+      }
+
+      case 'unknown':
+      default:
+        return null;
+    }
+  }
+
+  function _navIntroText(delta) {
+    const data = Session.getData();
+    const plan = Session.getPlan();
+    if (!data || !plan) return '';
+    const newIdx = data.currentIndex + delta;
+    const target = plan.exercises[newIdx];
+    if (!target) return '';
+    const intro = delta > 0 ? 'Moving to ' : 'Going back to ';
+    return intro + _describeExercise(target);
+  }
+
+  function _wrongFieldForType(ex, field) {
+    if (ex.type === 'timed') {
+      if (field === 'weight' || field === 'reps' || field === 'sets')
+        return `Bike uses level and time, not ${field}.`;
+    } else {
+      if (field === 'level' || field === 'duration')
+        return `${ex.name} uses weight, reps, and sets, not ${field === 'duration' ? 'time' : field}.`;
+    }
+    return null;
+  }
+
+  function _spokenFieldName(field) {
+    if (field === 'duration') return 'time';
+    return field;
+  }
+  function _unitFor(field) {
+    if (field === 'weight') return ' pounds';
+    if (field === 'duration') return ' minutes';
+    return '';
+  }
+  function _capitalize(s) {
+    if (!s) return s;
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  function _buildBikeDone(parsed) {
+    const ex = Session.getCurrentExercise();
+    if (!ex) return { text: 'No exercise loaded.' };
+    if (ex.type !== 'timed')
+      return { text: `${ex.name} is not the bike. Try "log it" or "set done".` };
+    const mins = parsed.minutes;
+    const lvl  = parsed.level;
+    const finalMins = (typeof mins === 'number') ? mins : Session.getEffectiveValue(ex.id, 'duration');
+    const finalLvl  = (typeof lvl  === 'number') ? lvl  : Session.getEffectiveValue(ex.id, 'level');
+    return {
+      effect: () => {
+        if (typeof mins === 'number') Session.applyTodayOverride('duration', mins);
+        if (typeof lvl  === 'number') Session.applyTodayOverride('level',    lvl);
+        Session.logSet();
+      },
+      text: `Bike logged. ${finalMins} minutes at level ${finalLvl}.`
+    };
+  }
+
+  // Walk history newest-to-oldest, find the most recent session that
+  // contains entries for this exercise, produce a one-sentence
+  // spoken summary. "No prior data for X." if nothing found.
+  function _lastTimeFor(exId) {
+    const plan = Session.getPlan();
+    const ex = plan ? plan.exercises.find(e => e.id === exId) : null;
+    if (!ex) return 'Exercise not found.';
+    let history;
+    try { history = Storage.loadKey('history'); }
+    catch (e) { return 'No prior data available.'; }
+    if (!history || !history.sessions || history.sessions.length === 0)
+      return `No prior data for ${ex.name}.`;
+    for (let i = history.sessions.length - 1; i >= 0; i--) {
+      const s = history.sessions[i];
+      const entries = (s.logEntries || []).filter(e => e.exId === exId);
+      if (entries.length === 0) continue;
+      if (ex.type === 'timed') {
+        const last = entries[entries.length - 1];
+        return `Last time: ${last.duration} minutes at level ${last.level}.`;
+      } else {
+        const setCount = entries.length;
+        const last = entries[entries.length - 1];
+        const setsWord = setCount === 1 ? 'set' : 'sets';
+        return `Last time: ${setCount} ${setsWord}, ${last.reps} reps at ${last.weight} pounds.`;
+      }
+    }
+    return `No prior data for ${ex.name}.`;
+  }
+
+  // End-of-workout spoken summary (spec §6.3). Uses
+  // Session.endWithSpokenSummary which commits history and applies
+  // plan changes but defers Voice.shutdown / Summary.show until the
+  // spoken summary's onend.
+  function _endWorkoutSpoken() {
+    const result = Session.endWithSpokenSummary();
+    if (!result) {
+      Diag.add('voice', 'endWithSpokenSummary returned null — using legacy path');
+      Session.end();
+      return;
+    }
+    _speak(result.summaryText, () => {
+      Voice.shutdown();
+      Summary.show(result.snapshot);
+    });
   }
 
   function _describeExercise(ex) {
@@ -2960,6 +3689,14 @@ const Voice = (() => {
       if (onDone) {
         try { onDone(); } catch (e) { Diag.add('voice', 'onDone error', String(e)); }
       }
+      // If the chain helper has more steps to run, do NOT transition
+      // back to LISTENING or restart the recognizer — the chain itself
+      // calls _speak again on the next step (and the onDone closure
+      // above already advanced it).
+      if (_inChainStep) {
+        Diag.add('voice', 'TTS ended mid-chain — staying in SPEAKING');
+        return;
+      }
       // Return to LISTENING if session is still active
       if (_wantListening) {
         State.transition(STATES.LISTENING, 'TTS done → listen');
@@ -2986,9 +3723,11 @@ const Voice = (() => {
   }
 
   // Called by global tap handler — cancels current utterance so user
-  // doesn't have to wait for app to finish talking.
+  // doesn't have to wait for app to finish talking. Also cancels any
+  // active compound-command chain so the second side effect is dropped.
   function interruptSpeech() {
     if (State.get() !== STATES.SPEAKING) return;
+    _cancelChain();
     try { window.speechSynthesis.cancel(); } catch(e) {}
     Diag.add('voice', 'TTS interrupted by tap');
     _currentUtter = null;
@@ -4493,6 +5232,7 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
+
 </script>
 </body>
 </html>

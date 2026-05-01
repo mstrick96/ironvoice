@@ -137,7 +137,7 @@ const Session = (() => {
     start();
   }
 
-  function navigate(delta) {
+  function navigate(delta, silent) {
     if (!_data || !_plan) return;
     const newIdx = _data.currentIndex + delta;
     if (newIdx < 0 || newIdx >= _plan.exercises.length) return;
@@ -147,6 +147,9 @@ const Session = (() => {
     Diag.add('session', `Navigate to index ${newIdx}`);
     // Spec §6.2: announce each exercise on arrival. Applies whether
     // navigation came from voice ("Coach next") or tap (PREV/NEXT).
+    // Step 4: voice executor passes silent=true when the chain step
+    // itself produces the announcement (avoids double-speaking).
+    if (silent) return;
     const ex = getCurrentExercise();
     if (ex) {
       const intro = delta > 0 ? 'Moving to ' : 'Going back to ';
@@ -154,7 +157,7 @@ const Session = (() => {
     }
   }
 
-  function goTo(index) {
+  function goTo(index, silent) {
     if (!_data || !_plan) return;
     if (index < 0 || index >= _plan.exercises.length) return;
     const sameIndex = _data.currentIndex === index;
@@ -162,6 +165,7 @@ const Session = (() => {
     heartbeat();
     WorkoutUI.render();
     Diag.add('session', `Jump to index ${index}`);
+    if (silent) return;
     // Announce the destination — same behavior as navigate() per
     // spec §6.2. Skip if user tapped the exercise they were already on.
     if (!sameIndex) {
@@ -321,8 +325,20 @@ const Session = (() => {
     }
   }
 
-  function end() {
-    if (!_data || !_plan) return;
+  function setSessionNote(text) {
+    if (!_data) return;
+    _data.sessionNote = String(text || '');
+    heartbeat();
+    Diag.add('session', 'Session note set', { len: _data.sessionNote.length });
+  }
+
+  // Internal: commits the current session to history, applies pending
+  // plan changes to the saved plan, clears the live session key, and
+  // returns a snapshot. Does NOT shut down voice or show Summary —
+  // those are caller responsibilities so the spoken-summary path can
+  // run TTS first. Returns null if no session is active.
+  function _commitSession() {
+    if (!_data || !_plan) return null;
     const history = Storage.loadKey('history');
 
     // Apply pending plan changes to the saved plan
@@ -356,7 +372,7 @@ const Session = (() => {
     history.sessions.push(record);
     Storage.saveKey('history', history);
     Storage.saveKey('session', null);
-    Diag.add('session', 'Session ended explicitly', { duration: durationMin });
+    Diag.add('session', 'Session committed', { duration: durationMin });
 
     const snapshot = {
       logEntries: _data.logEntries.slice(),
@@ -366,12 +382,38 @@ const Session = (() => {
     };
     _data = null;
     _plan = null;
+    return snapshot;
+  }
+
+  // Tap-driven end (END button → confirmation overlay → "Yes, end").
+  // Silent: voice not used here. The existing UI path.
+  function end() {
+    const snapshot = _commitSession();
+    if (!snapshot) return;
     // Shut down voice cleanly — stops recognizer, cancels any active
     // TTS, clears warm-keep timer, transitions state to IDLE if not
     // already there.
     Voice.shutdown();
     State.transition(STATES.IDLE, 'session ended');
     Summary.show(snapshot);
+  }
+
+  // Voice-driven end ("coach end workout"). Commits session, builds
+  // the spoken summary text, and returns { summaryText, snapshot }
+  // for the Voice module to speak before tearing down. Voice is left
+  // running so the summary speech can play; the caller invokes
+  // Voice.shutdown + Summary.show on the TTS onend.
+  function endWithSpokenSummary() {
+    const snapshot = _commitSession();
+    if (!snapshot) return null;
+    const uniqueExercises = new Set(snapshot.logEntries.map(e => e.exId)).size;
+    const setsCount = snapshot.logEntries.length;
+    const planUpdates = snapshot.pendingPlanChanges.length;
+    let txt = `Workout complete. ${uniqueExercises} exercise${uniqueExercises === 1 ? '' : 's'} logged, ${setsCount} set${setsCount === 1 ? '' : 's'} total, in ${snapshot.duration} minute${snapshot.duration === 1 ? '' : 's'}.`;
+    if (planUpdates > 0) {
+      txt += ` ${planUpdates} plan update${planUpdates === 1 ? '' : 's'} saved for next session.`;
+    }
+    return { summaryText: txt, snapshot };
   }
 
   function getData() { return _data; }
@@ -381,6 +423,7 @@ const Session = (() => {
     start, resume, startFresh, navigate, goTo,
     logSet, undoLastSet, applyTodayOverride, queuePlanChange, markNoteSeen, end,
     addSetDotOnly, saveSetCountForNextTime,
+    setSessionNote, endWithSpokenSummary,
     getEffectivePlannedSets, isSetCountSavedForNextTime,
     getCurrentExercise, getEffectiveValue, getSetCount, isExerciseDone,
     heartbeat, getData, getPlan
