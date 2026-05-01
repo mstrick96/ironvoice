@@ -797,3 +797,43 @@ The architecture is now solid for Step 4 to build on. Adding more banners, more 
 
 Step 4 is cleared to begin.
 
+### 2026-04-30 — Source-tree split (development workflow change)
+
+The 4,500-line single-file `index.html` was reorganized into 17 module files under `src/` plus a build step that concatenates them back into a single deployed `index.html`. The split was driven entirely by development ergonomics — collaborator context-window cost, edit-iteration friction, and search/navigation difficulty — not by any architectural concern with the code itself. **The deployed artifact (`index.html`) is byte-identical to the pre-split version**: same line count (4,498), same byte count (171,460), zero functional change. This was verified on iPhone against the live GitHub Pages URL with the standard six-point checklist (app loads, workout starts, "Coach next", "Coach pause", long-press badge diagnostics, set-dot logging) — all passing.
+
+**Locked decisions reaffirmed.** The single-HTML-file deployment constraint stays. The GitHub-Pages-direct-from-repo serving model stays. Editing through the GitHub web interface stays viable (now against `src/*.js` files instead of the monolithic `index.html`). The voice state machine, separated storage keys, opaque-banner architecture, wall-clock time base, layered command parser, and 6-hour heartbeat rule are all unchanged.
+
+**New decisions.** Source of truth for JavaScript content moves to `src/NN-name.js` files where `NN` is a two-digit numeric prefix that establishes load order via alphabetical concatenation. `index.html` becomes a build artifact regenerated from `index.template.html` by either `build.sh` (bash, used by GitHub Actions on Linux) or `build.ps1` (PowerShell, used locally on Windows). Editing `index.html` directly is now disallowed — the next push to `src/` would overwrite the manual edit. This rule is documented in `README_split.md` and reinforced by the GitHub Actions workflow (`.github/workflows/build.yml`) which auto-rebuilds `index.html` on any push touching `src/**`, `index.template.html`, or `build.sh`.
+
+**Module boundaries chosen.** The split follows the section dividers already present in the original file's commenting, with one file per `const X = (() => {})()` IIFE plus a separate file for the top-level init code. Final layout:
+
+01-config.js     CONFIG, STORAGE_KEYS, SCHEMA_VERSION, STATES, ALLOWED_TRANSITIONS
+02-diag.js       Diag (must load early — others depend on it)
+03-storage.js    Storage layer
+04-state.js      State machine
+05-ui.js         UI (screens & banners)
+06-session.js    Session
+07-voice.js      Voice (Step 4 will land here)
+08-voice-tester.js
+09-workout-ui.js
+10-end-confirm.js
+11-summary.js
+12-plan-editor.js
+13-inspector.js
+14-lifecycle.js
+15-preflight.js
+16-iv.js         IV public dev console namespace
+17-init.js       init() function and top-level event wiring
+
+Voice is the largest at 780 lines — the file Step 4 modifies. Most other modules are 100–300 lines. Total source size unchanged at 2,805 lines of JavaScript.
+
+**Verification approach.** The build was tested for reproducibility (clean run from `src/` produces byte-identical `index.html`) and for round-trip syntactic validity (`node --check` passes on the rebuilt file). Final on-device verification on iPhone confirmed no behavioral change.
+
+**Workflow going forward.** Edits happen against `src/*.js` files, either through the GitHub web interface (auto-rebuilds via Actions, ~30 sec) or locally on the Windows laptop (run `.\build.ps1` then `git push`). Both paths converge: the GitHub Action rebuilds on any push to `src/`, so even if a local build is skipped, the server-side build catches it.
+
+**Lessons captured for the telescope project.** Three carry forward: (1) decide source-tree structure on day one rather than letting any one file grow past ~500 lines without a deliberate decision; (2) build a forcing function for laptop-side testability of every module that doesn't strictly require hardware; (3) treat "deployed shape" and "developed shape" as separate decisions — the same pattern (source files + build script + Action) is reusable for the telescope's control UI if it goes web-based. A fourth lesson on collaboration discipline rather than architecture: every non-trivial edit must be verified-after-write before further work proceeds. Lack of that discipline was the proximate cause of the failed Step 4 attempts that motivated this split.
+
+**Ancillary file changes.** `README_split.md` added (build-system documentation, separate from project README which stays the user-facing intro). `.github/workflows/build.yml` added. Original `README.md` preserved unchanged.
+
+Status: 🟢 Split complete and verified on device. Step 4 work resumes against `src/07-voice.js` in the next session — same scope as previously locked (Layer 2 keyword grammar, `_speakChain` compound architecture, alias-based exercise lookup with `hip in`/`hip out` leading aliases, spoken end-of-workout summary, no `progress` command, `end workout` direct without confirmation).
+
