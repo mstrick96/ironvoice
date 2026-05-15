@@ -25,7 +25,7 @@ const CONFIG = {
       id: 'bike', type: 'timed', name: 'Recumbent Bike',
       level: 1, duration: 10,
       note: 'Easy warm-up pace. Loosen hips and legs.',
-      aliases: ['bike', 'bicycle', 'warmup', 'warm up', 'recumbent']
+      aliases: ['bike', 'bicycle', 'warmup', 'warm up', 'warm-up', 'recumbent']
     },
     {
       id: 'e01', type: 'strength', name: 'Chest Press',

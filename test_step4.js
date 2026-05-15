@@ -190,7 +190,7 @@ chk('goto/do X',          'do leg press',          { cmd: 'goTo', nameFragment: 
 chk('goto/do X next',     'do leg press next',     { cmd: 'goTo', nameFragment: 'leg press' });
 chk('goto/hip in',        'go to hip in',          { cmd: 'goTo', nameFragment: 'hip in' });
 chk('goto/hip out',       'go to hip out',         { cmd: 'goTo', nameFragment: 'hip out' });
-chk('goto/the bike',      'go to the bike',        { cmd: 'goTo', nameFragment: 'the bike' });
+chk('goto/the bike',      'go to the bike',        { cmd: 'goTo', nameFragment: 'bike' });
 
 chk('skip',               'skip this',  { cmd: 'skip' });
 chk('skip/short',         'skip it',    { cmd: 'skip' });
@@ -302,6 +302,95 @@ chk('note-and/nextTime',  'next time add note slow and controlled',
     { cmd: 'nextTimeNote', text: 'slow and controlled' });
 chk('note-and/workout',   'workout note shoulders and chest felt strong',
     { cmd: 'workoutNote', text: 'shoulders and chest felt strong' });
+
+// ────────────────────────────────────────────────────────────────────
+// 10a. Step 4 Patch 1 — apostrophes, past-tense, homophones, articles
+// ────────────────────────────────────────────────────────────────────
+
+// Apostrophe stripping
+chk('apos/whats next',     "what's next",                  { cmd: 'whatsNext' });
+chk('apos/whats left',     "what's left",                  { cmd: 'whatsLeft' });
+chk('apos/thats a set',    "that's a set",                 { cmd: 'logSet' });
+chk('apos/thats it',       "that's it",                    { cmd: 'logSet' });
+
+// "was" mishearing of "whats"
+chk('was/next',            'was next',                     { cmd: 'whatsNext' });
+chk('was/left',            'was left',                     { cmd: 'whatsLeft' });
+
+// Past-tense navigation verbs
+chk('skip/passed',         'passed',                       { cmd: 'skip' });
+chk('skip/past',           'past',                         { cmd: 'skip' });
+chk('skip/skipped',        'skipped this',                 { cmd: 'skip' });
+chk('goto/switched',       'switched to leg press',        { cmd: 'goTo', nameFragment: 'leg press' });
+chk('goto/jumped',         'jumped to leg press',          { cmd: 'goTo', nameFragment: 'leg press' });
+
+// changed / chain synonyms for change
+chk('change/changed',      'changed weight to 45',         { cmd: 'changeToday', field: 'weight', value: 45 });
+chk('change/chain',        'chain weight to 45',           { cmd: 'changeToday', field: 'weight', value: 45 });
+chk('change/the article',  'change the weight to 50',     { cmd: 'changeToday', field: 'weight', value: 50 });
+chk('change/my article',   'change my weight to 50',       { cmd: 'changeToday', field: 'weight', value: 50 });
+
+// wait → weight homophone
+chk('wait/change today',   'change wait to 50',            { cmd: 'changeToday', field: 'weight', value: 50 });
+chk('wait/the wait',       'change the wait to 50',        { cmd: 'changeToday', field: 'weight', value: 50 });
+chk('wait/next time',      'next time wait 50',            { cmd: 'nextTime', field: 'weight', value: 50 });
+
+// repetitions → reps
+chk('reps/repetitions',    'change repetitions to 25',     { cmd: 'changeToday', field: 'reps', value: 25 });
+chk('reps/repetition',     'change repetition to 25',      { cmd: 'changeToday', field: 'reps', value: 25 });
+chk('reps/nt repetitions', 'next time 25 repetitions',     { cmd: 'nextTime', field: 'reps', value: 25 });
+
+// set/said/sat/sit homophones at command-start
+chk('set/said done',       'said done',                    { cmd: 'logSet' });
+chk('set/sat done',        'sat done',                     { cmd: 'logSet' });
+chk('set/sit done',        'sit done',                     { cmd: 'logSet' });
+chk('set/add said',        'add a said',                   { cmd: 'addSet' });
+chk('set/one said down',   'one said down',                { cmd: 'logSet' });
+
+// log/logged/lock/locked homophones
+chk('log/logged it',       'logged it',                    { cmd: 'logSet' });
+chk('log/lock it',         'lock it',                      { cmd: 'logSet' });
+chk('log/locked it',       'locked it',                    { cmd: 'logSet' });
+
+// "done" past-tense - mark/marked
+chk('logSet/marked it',    'marked it off',                { cmd: 'logSet' });
+
+// add a/the note tolerance
+chk('addNote/a',           'add a note slow on the return', { cmd: 'addNote', text: 'slow on the return' });
+chk('addNote/the',         'add the note slow on the return', { cmd: 'addNote', text: 'slow on the return' });
+// note text containing "the" preserved verbatim
+chk('addNote/preserve',    'add note slow on the return',  { cmd: 'addNote', text: 'slow on the return' });
+
+// won/wan → one in number parser
+chk('one/won more set',    'won more set',                 { cmd: 'addSet' });
+chk('one/wan more set',    'wan more set',                 { cmd: 'addSet' });
+chk('one/did won rep',     'i did won reps at forty pounds', { cmd: 'logSetWithValues', reps: 1, weight: 40 });
+
+// Weight-first logging with required unit words
+chk('logVals/wf basic',    'i did 40 pounds for 20 reps',  { cmd: 'logSetWithValues', reps: 20, weight: 40 });
+chk('logVals/wf and',      'did 40 pounds and 20 reps',    { cmd: 'logSetWithValues', reps: 20, weight: 40 });
+chk('logVals/wf comma',    'did 40 pounds, 20 reps',       { cmd: 'logSetWithValues', reps: 20, weight: 40 });
+chk('logVals/wf no leadin','40 pounds for 20 reps',        { cmd: 'logSetWithValues', reps: 20, weight: 40 });
+chk('logVals/wf reps long','i did 40 pounds for 20 repetitions', { cmd: 'logSetWithValues', reps: 20, weight: 40 });
+chk('logVals/wf rejects',  'did 40 for 20',                { cmd: 'unknown' });  // no units = ambiguous
+
+// Next-time field inference from unit words
+chk('nt/N minutes',        'next time 40 minutes',         { cmd: 'nextTime', field: 'duration', value: 40 });
+chk('nt/N pounds',         'next time 45 pounds',          { cmd: 'nextTime', field: 'weight', value: 45 });
+chk('nt/bike N minutes',   'next time bike 30 minutes',    { cmd: 'nextTime', field: 'duration', value: 30 });
+chk('nt/N mins',           'next time 40 mins',            { cmd: 'nextTime', field: 'duration', value: 40 });
+
+// End-workout aliases
+chk('endWorkout/workout done',  'workout done',            { cmd: 'endWorkout' });
+chk('endWorkout/workout is',    'workout is done',         { cmd: 'endWorkout' });
+chk('endWorkout/finished workout', 'finished workout',     { cmd: 'endWorkout' });
+chk('endWorkout/end the workout', 'end the workout',       { cmd: 'endWorkout' });
+chk('endWorkout/workout complete', 'workout complete',     { cmd: 'endWorkout' });
+
+// Compound with new patch-1 forms
+chkCompound('cmpd/p1 changed+log', 'changed weight to 45 and log it', 'changeToday', 'logSet');
+chkCompound('cmpd/p1 said done+next', 'said done and next', 'logSet', 'next');
+chkCompound('cmpd/p1 workout done',   'log it and workout done', 'logSet', 'endWorkout');
 
 // ────────────────────────────────────────────────────────────────────
 // 10. Unknowns & edge cases

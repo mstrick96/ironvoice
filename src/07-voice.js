@@ -181,7 +181,7 @@ const Voice = (() => {
   // handled by tokenizing and re-pairing in _parseNumber.
   const _NUM_WORDS = {
     'zero': 0, 'oh': 0,
-    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+    'one': 1, 'wan': 1, 'won': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
     'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
     'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14,
     'fifteen': 15, 'sixteen': 16, 'seventeen': 17, 'eighteen': 18,
@@ -303,7 +303,7 @@ const Voice = (() => {
   // non-splittable (note text extends to end-of-utterance).
 
   function _isNotePrefix(s) {
-    return /^(add note\b|workout note\b|next time add note\b)/.test(s);
+    return /^(add (a |the )?note\b|workout (a |the )?note\b|workouts (a |the )?note\b|next time add (a |the )?note\b)/.test(s);
   }
 
   function _trySplitCompound(tail) {
@@ -320,7 +320,9 @@ const Voice = (() => {
   // ───── Layer 2 parser ──────────────────────────────────────────
 
   function _parseSingle(tail) {
-    const t = String(tail || '').trim().toLowerCase().replace(/[.,!?;]+$/g, '');
+    const t = String(tail || '').trim().toLowerCase()
+      .replace(/[''']/g, '')
+      .replace(/[.,!?;]+$/g, '');
     if (!t) return { cmd: 'bare' };
 
     // ── Navigation ────────────────────────────────────────────────
@@ -330,16 +332,16 @@ const Voice = (() => {
       return { cmd: 'previous' };
     if (/^(repeat|say that again|what was that|come again|i missed that)$/.test(t))
       return { cmd: 'repeat' };
-    if (/^(skip( this)?( one)?|skip it|pass|come back later|machines taken|machine is taken)$/.test(t))
+    if (/^(skip( this)?( one)?|skip it|skipped( this)?( one)?|pass|passed|past|come back later|machines taken|machine is taken)$/.test(t))
       return { cmd: 'skip' };
-    if (/^(whats next|what is next|what comes next|whats after this|coming up)$/.test(t))
+    if (/^(whats next|was next|what is next|what comes next|whats after this|coming up)$/.test(t))
       return { cmd: 'whatsNext' };
-    if (/^(whats left|what is left|whats remaining|what is remaining|how much is left|what do i still have)$/.test(t))
+    if (/^(whats left|was left|what is left|whats remaining|what is remaining|how much is left|what do i still have)$/.test(t))
       return { cmd: 'whatsLeft' };
     if (/^(list exercises|read me the list|todays workout|what am i doing today|read the list)$/.test(t))
       return { cmd: 'listExercises' };
     let mNav;
-    if ((mNav = t.match(/^(?:go to|switch to|jump to|do)\s+(.+?)(?:\s+next)?$/))) {
+    if ((mNav = t.match(/^(?:go to|switch to|switched to|jump to|jumped to|do)\s+(?:the\s+)?(.+?)(?:\s+next)?$/))) {
       return { cmd: 'goTo', nameFragment: mNav[1].trim() };
     }
 
@@ -347,14 +349,14 @@ const Voice = (() => {
     if (/^help$/.test(t)) return { cmd: 'help' };
     if (/^(pause|pause's|paus|paul|paul's|pauls|paws|paw's|stop listening|mute)$/.test(t))
       return { cmd: 'pause' };
-    if (/^(end workout|finish workout|were done|we are done|end session|finish up|that is it for today|thats it for today)$/.test(t))
+    if (/^(end workout|end the workout|finish workout|finish the workout|finished workout|were done|we are done|end session|finish up|finished up|that is it for today|thats it for today|workout done|workout is done|workout complete)$/.test(t))
       return { cmd: 'endWorkout' };
 
     // ── Notes (non-splittable; must be checked early) ─────────────
     let mNote;
-    if ((mNote = t.match(/^add note\s+(.+)$/)))
+    if ((mNote = t.match(/^add (?:a |the )?note\s+(.+)$/)))
       return { cmd: 'addNote', text: mNote[1].trim() };
-    if ((mNote = t.match(/^workout note\s+(.+)$/)))
+    if ((mNote = t.match(/^(?:workout|workouts) (?:a |the )?note\s+(.+)$/)))
       return { cmd: 'workoutNote', text: mNote[1].trim() };
     if (/^read (my )?notes?$/.test(t) || /^read the notes?$/.test(t))
       return { cmd: 'readNotes' };
@@ -364,30 +366,51 @@ const Voice = (() => {
       return { cmd: 'lastTime' };
 
     // ── Logging ───────────────────────────────────────────────────
+    // "I did 20 reps at 40 pounds" — REPS-FIRST (existing, permissive)
     let mLog;
-    if ((mLog = t.match(/^(?:i did|did|got|finished)\s+(.+?)\s+(?:reps?\s+)?(?:at|with)\s+(.+?)(?:\s+(?:pounds?|lbs?|lb))?$/))) {
-      const nReps = _parseNumber(mLog[1].replace(/\s*reps?\s*$/, '').trim());
+    if ((mLog = t.match(/^(?:i did|did|got|finished)\s+(.+?)\s+(?:(?:reps?|repetitions?)\s+)?(?:at|with)\s+(.+?)(?:\s+(?:pounds?|lbs?|lb))?$/))) {
+      const nReps = _parseNumber(mLog[1].replace(/\s*(reps?|repetitions?)\s*$/, '').trim());
       const nWt   = _parseNumber(mLog[2].replace(/\s*(pounds?|lbs?|lb)\s*$/, '').trim());
       if (nReps !== null && nWt !== null) {
         return { cmd: 'logSetWithValues', reps: nReps, weight: nWt };
       }
     }
-    if ((mLog = t.match(/^(.+?)\s+reps?\s+(?:at|with)\s+(.+?)(?:\s+(?:pounds?|lbs?|lb))?$/))) {
+    if ((mLog = t.match(/^(.+?)\s+(?:reps?|repetitions?)\s+(?:at|with)\s+(.+?)(?:\s+(?:pounds?|lbs?|lb))?$/))) {
       const nReps = _parseNumber(mLog[1].trim());
       const nWt   = _parseNumber(mLog[2].replace(/\s*(pounds?|lbs?|lb)\s*$/, '').trim());
       if (nReps !== null && nWt !== null) {
         return { cmd: 'logSetWithValues', reps: nReps, weight: nWt };
       }
     }
-    if (/^(set done|thats a set|that is a set|one set down|finished a set|set complete|set is done|set finished)$/.test(t))
+    // Patch 1: WEIGHT-FIRST — requires unit words on both numbers to
+    // disambiguate from reps-first. "I did 40 pounds for 20 reps".
+    if ((mLog = t.match(/^(?:i did|did|got|finished)\s+(.+?)\s+(?:pounds?|lbs?|lb)\s*(?:for|and|,)\s+(.+?)\s+(?:reps?|repetitions?)$/))) {
+      const nWt   = _parseNumber(mLog[1].trim());
+      const nReps = _parseNumber(mLog[2].trim());
+      if (nReps !== null && nWt !== null) {
+        return { cmd: 'logSetWithValues', reps: nReps, weight: nWt };
+      }
+    }
+    if ((mLog = t.match(/^(.+?)\s+(?:pounds?|lbs?|lb)\s*(?:for|and|,)\s+(.+?)\s+(?:reps?|repetitions?)$/))) {
+      const nWt   = _parseNumber(mLog[1].trim());
+      const nReps = _parseNumber(mLog[2].trim());
+      if (nReps !== null && nWt !== null) {
+        return { cmd: 'logSetWithValues', reps: nReps, weight: nWt };
+      }
+    }
+    // Patch 1: tolerate iOS mishearings of "set" (said, sat, sit) at
+    // command-start only — these words are too common in note text to
+    // substitute globally. Same for "log" / "lock" / "locked", and
+    // "done" past-tense forms.
+    if (/^((set|said|sat|sit) done|thats a (set|said|sat|sit)|that is a (set|said|sat|sit)|one (set|said|sat|sit) down|finished a (set|said|sat|sit)|(set|said|sat|sit) complete|(set|said|sat|sit) is done|(set|said|sat|sit) finished)$/.test(t))
       return { cmd: 'logSet' };
-    if (/^(exercise done|done with this|thats it|that is it|all done here|finished this one|mark it off|mark it done)$/.test(t))
+    if (/^(exercise done|done with this|thats it|that is it|all done here|finished this one|mark it off|marked it off|mark it done)$/.test(t))
       return { cmd: 'logSet' };
-    if (/^(log it|log this( exercise)?|mark it logged|save this one|log this set)$/.test(t))
+    if (/^((log|logged|lock|locked) it|(log|logged|lock|locked) this( exercise)?|mark it (log|logged|lock|locked)|save this one|(log|logged|lock|locked) this (set|said|sat|sit))$/.test(t))
       return { cmd: 'logSet' };
-    if (/^(undo( last set)?|take back the last set|remove that log|undo that)$/.test(t))
+    if (/^(undo( last (set|said|sat|sit))?|take back the last (set|said|sat|sit)|remove that log|undo that)$/.test(t))
       return { cmd: 'undoSet' };
-    if (/^(add a set|add set|one more set|add another set|give me another set)$/.test(t))
+    if (/^(add (a |the )?(set|said|sat|sit)|added (a |the )?(set|said|sat|sit)|(one|won|wan) more (set|said|sat|sit)|add another (set|said|sat|sit)|give me another (set|said|sat|sit))$/.test(t))
       return { cmd: 'addSet' };
 
     let mBike;
@@ -415,7 +438,7 @@ const Voice = (() => {
 
     // ── Today-only value changes ──────────────────────────────────
     let mChg;
-    if ((mChg = t.match(/^(?:change|set|use)\s+(weight|reps?|sets?|level|time|duration|minutes?)\s+(?:to\s+)?(.+?)(?:\s+(?:pounds?|lbs?|lb|minutes?|mins?|min))?(?:\s+today)?$/))) {
+    if ((mChg = t.match(/^(?:change|changed|chain|set|use)\s+(?:the\s+|my\s+)?(weight|wait|reps?|repetitions?|sets?|level|time|duration|minutes?)\s+(?:to\s+)?(.+?)(?:\s+(?:pounds?|lbs?|lb|minutes?|mins?|min))?(?:\s+today)?$/))) {
       const field = _normalizeField(mChg[1]);
       const value = _parseNumber(mChg[2].replace(/\s*(pounds?|lbs?|lb|minutes?|mins?|min)\s*$/, '').trim());
       if (field && value !== null) return { cmd: 'changeToday', field, value };
@@ -445,8 +468,8 @@ const Voice = (() => {
 
   function _normalizeField(raw) {
     const f = String(raw || '').toLowerCase();
-    if (f === 'weight') return 'weight';
-    if (f === 'rep' || f === 'reps') return 'reps';
+    if (f === 'weight' || f === 'wait') return 'weight';
+    if (f === 'rep' || f === 'reps' || f === 'repetition' || f === 'repetitions') return 'reps';
     if (f === 'set' || f === 'sets') return 'sets';
     if (f === 'level') return 'level';
     if (f === 'time' || f === 'duration' || f === 'minute' || f === 'minutes') return 'duration';
@@ -456,18 +479,32 @@ const Voice = (() => {
   // Parse the part after "next time" — flexible word order. Returns
   // { field, value } or null.
   function _parseNextTimeRest(s) {
-    const t = String(s || '').trim().toLowerCase()
+    const t = String(s || '').trim().toLowerCase();
+    // Patch 1: unit-word inference. "next time 40 minutes" → duration.
+    // "next time 45 pounds" → weight. Detected BEFORE stripping units,
+    // so the unit is the disambiguating signal.
+    const unitMin = t.match(/^(?:bike\s+)?(.+?)\s+(minutes?|mins?|min)$/);
+    if (unitMin) {
+      const value = _parseNumber(unitMin[1].trim());
+      if (value !== null) return { field: 'duration', value };
+    }
+    const unitLb = t.match(/^(?:bike\s+)?(.+?)\s+(pounds?|lbs?|lb)$/);
+    if (unitLb) {
+      const value = _parseNumber(unitLb[1].trim());
+      if (value !== null) return { field: 'weight', value };
+    }
+    const noUnits = t
       .replace(/\s*(pounds?|lbs?|lb)\s*$/, '')
       .replace(/\s*(minutes?|mins?|min)\s*$/, '');
-    const noBike = t.replace(/^bike\s+/, '');
+    const noBike = noUnits.replace(/^bike\s+/, '');
     const noTo = noBike.replace(/\s+to\s+/, ' ').replace(/^to\s+/, '');
-    const fieldFirst = noTo.match(/^(weight|reps?|sets?|level|time|duration|minutes?)\s+(.+)$/);
+    const fieldFirst = noTo.match(/^(weight|wait|reps?|repetitions?|sets?|level|time|duration|minutes?)\s+(.+)$/);
     if (fieldFirst) {
       const field = _normalizeField(fieldFirst[1]);
       const value = _parseNumber(fieldFirst[2].trim());
       if (field && value !== null) return { field, value };
     }
-    const valFirst = noTo.match(/^(.+?)\s+(weight|reps?|sets?|level|time|duration|minutes?)$/);
+    const valFirst = noTo.match(/^(.+?)\s+(weight|wait|reps?|repetitions?|sets?|level|time|duration|minutes?)$/);
     if (valFirst) {
       const value = _parseNumber(valFirst[1].trim());
       const field = _normalizeField(valFirst[2]);
@@ -478,7 +515,12 @@ const Voice = (() => {
 
   // Top-level parser: handles compound detection, then delegates.
   function _parseCommand(tail) {
-    const t = String(tail || '').trim().toLowerCase().replace(/[.,!?;]+$/g, '');
+    // Patch 1: strip apostrophes globally. iOS returns contractions
+    // ("what's", "that's", "it's") that don't match the parser's
+    // apostrophe-free regexes. Strip at entry; every command benefits.
+    const t = String(tail || '').trim().toLowerCase()
+      .replace(/[''']/g, '')
+      .replace(/[.,!?;]+$/g, '');
     if (!t) return { cmd: 'bare' };
 
     const split = _trySplitCompound(t);
